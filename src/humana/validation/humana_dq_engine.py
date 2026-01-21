@@ -52,3 +52,29 @@ class HumanaDQEngine:
             quarantine_df = quarantine_df.withColumn(k, F.lit(vv))
         summary_df = self.spark.createDataFrame([(run_id, run_ts, validation_id)], ["run_id","run_ts","validation_id"])
         return valid_df, quarantine_df, summary_df
+
+
+        @staticmethod
+    def _build_default_registry() -> DQRuleRegistry:
+        """
+        Central place for default custom-rule registration.
+        Automatically invoked during engine construction.
+        """
+        reg = DQRuleRegistry()
+
+        # Lazy imports avoid import-time side effects
+        from humana.validation import builtin_row_rules as rr
+        from humana.validation import dq_dataset_rules as ds
+
+        # -------- Row rules --------
+        reg.register_row("is_length_invalid", rr.is_length_invalid)
+        reg.register_row("is_value_invalid", rr.is_value_invalid)
+        reg.register_row("is_startswith_invalid", rr.is_startswith_invalid)
+        # reg.register_row("is_alphanum_invalid", rr.is_alphanum_invalid)
+
+        # -------- Dataset rules --------
+        reg.register_dataset("uniqueness_invalid", ds.uniqueness_invalid)
+        reg.register_dataset("overlaps_invalid", ds.overlaps_invalid)
+        reg.register_dataset("referential_invalid", ds.referential_invalid)
+
+        return reg
