@@ -1,0 +1,98 @@
+{
+  "type": "struct",
+  "fields": [
+    {
+      "name": "dq_run_id",
+      "type": "string",
+      "nullable": false,
+      "metadata": {}
+    },
+    {
+      "name": "validation_id",
+      "type": "string",
+      "nullable": false,
+      "metadata": {}
+    },
+    {
+      "name": "run_ts_utc",
+      "type": "timestamp",
+      "nullable": false,
+      "metadata": {}
+    },
+    {
+      "name": "status",
+      "type": "string",
+      "nullable": false,
+      "metadata": {}
+    },
+
+    {
+      "name": "job_id",
+      "type": "string",
+      "nullable": true,
+      "metadata": {}
+    },
+    {
+      "name": "run_id",
+      "type": "string",
+      "nullable": true,
+      "metadata": {}
+    },
+    {
+      "name": "task_run_id",
+      "type": "string",
+      "nullable": true,
+      "metadata": {}
+    },
+    {
+      "name": "task_key",
+      "type": "string",
+      "nullable": true,
+      "metadata": {}
+    },
+    {
+      "name": "notebook_path",
+      "type": "string",
+      "nullable": true,
+      "metadata": {}
+    },
+    {
+      "name": "cluster_id",
+      "type": "string",
+      "nullable": true,
+      "metadata": {}
+    },
+    {
+      "name": "user",
+      "type": "string",
+      "nullable": true,
+      "metadata": {}
+    },
+
+    {
+      "name": "input_row_count",
+      "type": "long",
+      "nullable": true,
+      "metadata": {}
+    },
+    {
+      "name": "valid_row_count",
+      "type": "long",
+      "nullable": true,
+      "metadata": {}
+    },
+    {
+      "name": "quarantine_row_count",
+      "type": "long",
+      "nullable": true,
+      "metadata": {}
+    },
+
+    {
+      "name": "metadata_json",
+      "type": "string",
+      "nullable": true,
+      "metadata": {}
+    }
+  ]
+}

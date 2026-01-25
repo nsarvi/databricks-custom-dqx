@@ -1,0 +1,41 @@
+{
+  "type": "struct",
+  "fields": [
+    {
+      "name": "dq_run_id",
+      "type": "string",
+      "nullable": false,
+      "metadata": {}
+    },
+    {
+      "name": "validation_id",
+      "type": "string",
+      "nullable": false,
+      "metadata": {}
+    },
+    {
+      "name": "ingest_dt",
+      "type": "date",
+      "nullable": false,
+      "metadata": {}
+    },
+    {
+      "name": "severity",
+      "type": "string",
+      "nullable": false,
+      "metadata": {}
+    },
+    {
+      "name": "rule_name",
+      "type": "string",
+      "nullable": false,
+      "metadata": {}
+    },
+    {
+      "name": "fail_count",
+      "type": "long",
+      "nullable": false,
+      "metadata": {}
+    }
+  ]
+}

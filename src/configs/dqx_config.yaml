@@ -1,0 +1,18 @@
+version: 1
+
+persistence:
+  enabled: true
+
+  tables:
+    run_summary:
+      name: "pcs_dev_001.pcs.dqx_summary"
+      schema_file: "schemas/dqx_summary_config.json"
+      format: "delta"
+      mode: "append"
+
+    quarantine:
+      name: "pcs_dev_001.pcs.dqx_quarantine"
+      schema_file: "schemas/dqx_quarantine_config.json"
+      format: "delta"
+      mode: "append"
+      partitioned_by: ["ingest_dt"]
