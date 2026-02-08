@@ -4,7 +4,7 @@ import os
 import sys
 import logging
 from pathlib import Path
-from typing import Dict, Optional, List
+from typing import Any, Dict
 
 import yaml
 from importlib import resources
@@ -12,106 +12,119 @@ from importlib import resources
 logger = logging.getLogger(__name__)
 
 
-class ConfigUtils:
-    DEFAULT_CONFIGS_MODULE = "idea4.configs"  # <-- change to your package path
+class ConfigUtil:
+    """
+    Behavior:
+      - If spec == DEFAULT_DQX_CONFIG_FILE:
+            load packaged wheel resource (package:resource)
+      - Else:
+            treat spec as filesystem path:
+              1) absolute
+              2) CWD-relative
+              3) sys.path directories
+    """
+
+    # Standard, unambiguous packaged default (wheel resource)
+    DEFAULT_DQX_CONFIG_FILE: str = "idea4.configs:idea4_config.yaml"
+
+    ENABLE_SYS_PATH_SEARCH: bool = True
 
     @staticmethod
-    def _normalize_path_str(path_str: str) -> str:
-        # Expand "~" and env vars like "$HOME/..." or "${VAR}/..."
-        return os.path.expandvars(os.path.expanduser(path_str))
+    def load_dqx_config(spec: str) -> Dict[str, Any]:
+        if spec is None or not isinstance(spec, str) or not spec.strip():
+            raise ValueError("config spec must be a non-empty string")
+
+        spec = spec.strip()
+
+        # ✅ Only load from wheel when the caller passes the default constant
+        if spec == ConfigUtil.DEFAULT_DQX_CONFIG_FILE:
+            return ConfigUtil._load_packaged_yaml(spec)
+
+        # ✅ Otherwise treat it as a filesystem path (even if it contains ':')
+        path = ConfigUtil._resolve_filesystem_path(spec)
+        return ConfigUtil._load_yaml_file(path)
+
+    # ---------------- Packaged default ----------------
 
     @staticmethod
-    def _sys_path_dirs() -> List[Path]:
-        """
-        Yield sys.path entries that are real directories.
-        Skips '', None, zip/egg files, and non-existent paths.
-        """
-        dirs: List[Path] = []
-        for entry in sys.path:
-            if not entry:  # '' or None
-                continue
-            try:
-                p = Path(entry)
-            except TypeError:
-                continue
-            if p.exists() and p.is_dir():
-                dirs.append(p)
-        return dirs
+    def _load_packaged_yaml(resource_spec: str) -> Dict[str, Any]:
+        package, resource = ConfigUtil._parse_resource_spec(resource_spec)
+        traversable = resources.files(package).joinpath(resource)
+
+        try:
+            with resources.as_file(traversable) as p:
+                p = Path(p)
+                if not p.exists() or not p.is_file():
+                    raise FileNotFoundError
+                logger.debug(f"Loading packaged default config: {package}/{resource}")
+                return ConfigUtil._load_yaml_file(p)
+        except ModuleNotFoundError as e:
+            raise FileNotFoundError(f"Package not found: {package}") from e
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"Packaged default config not found: {package}/{resource}") from e
 
     @staticmethod
-    def _resolve_path(path_str: str) -> Path:
+    def _parse_resource_spec(resource_spec: str) -> tuple[str, str]:
         """
-        Resolve a config file path by checking:
-        1) Absolute path (after expanding ~ and env vars)
-        2) CWD-relative path
-        3) sys.path directories (directory entries only)
-        4) Packaged config resources (wheel-owned) -> extracted to a temp file
+        Parse 'package:relative/path.yaml'
         """
-        attempted: List[str] = []
+        if ":" not in resource_spec:
+            raise ValueError(
+                f"Invalid default resource spec (expected 'package:resource'): {resource_spec!r}"
+            )
+        package, resource = resource_spec.split(":", 1)
+        package = package.strip()
+        resource = resource.strip().lstrip("/")
+        if not package or not resource:
+            raise ValueError(f"Invalid default resource spec: {resource_spec!r}")
+        return package, resource
 
-        normalized = ConfigUtils._normalize_path_str(path_str)
+    # ---------------- Filesystem resolution ----------------
+
+    @staticmethod
+    def _resolve_filesystem_path(path_str: str) -> Path:
+        attempted = []
+
+        normalized = os.path.expandvars(os.path.expanduser(path_str))
         p = Path(normalized)
 
-        # 1) Absolute path
+        # 1) Absolute
         if p.is_absolute():
             attempted.append(str(p))
             if p.exists() and p.is_file():
-                logger.debug(f"Found config file at absolute path: {p}")
+                logger.debug(f"Found config at absolute path: {p}")
                 return p
 
-        # 2) CWD-relative path
+        # 2) CWD-relative
         cwd_candidate = (Path.cwd() / p).resolve()
         attempted.append(str(cwd_candidate))
         if cwd_candidate.exists() and cwd_candidate.is_file():
-            logger.debug(f"Found config file relative to CWD: {cwd_candidate}")
+            logger.debug(f"Found config relative to CWD: {cwd_candidate}")
             return cwd_candidate
 
         # 3) sys.path directories
-        for base in ConfigUtils._sys_path_dirs():
-            candidate = (base / p)
-            attempted.append(str(candidate))
-            if candidate.exists() and candidate.is_file():
-                logger.debug(f"Found config file in sys.path: {candidate}")
-                return candidate
+        if ConfigUtil.ENABLE_SYS_PATH_SEARCH:
+            for entry in sys.path:
+                if not entry:
+                    continue
+                base = Path(entry)
+                if not base.exists() or not base.is_dir():
+                    continue
+                candidate = base / p
+                attempted.append(str(candidate))
+                if candidate.exists() and candidate.is_file():
+                    logger.debug(f"Found config in sys.path: {candidate}")
+                    return candidate
 
-        # 4) Packaged fallback (works for wheel-installed configs)
-        #    NOTE: If you *don't* package configs, you can delete this block.
-        try:
-            traversable = resources.files(ConfigUtils.DEFAULT_CONFIGS_MODULE).joinpath(str(p))
-            # If it exists, convert to real path (may extract to temp)
-            with resources.as_file(traversable) as extracted_path:
-                extracted = Path(extracted_path)
-                attempted.append(f"package:{ConfigUtils.DEFAULT_CONFIGS_MODULE}/{p}")
-                if extracted.exists() and extracted.is_file():
-                    logger.debug(
-                        f"Found config file in package resources: "
-                        f"{ConfigUtils.DEFAULT_CONFIGS_MODULE}/{p} -> {extracted}"
-                    )
-                    return extracted
-        except (ModuleNotFoundError, FileNotFoundError):
-            attempted.append(f"package:{ConfigUtils.DEFAULT_CONFIGS_MODULE}/{p}")
-
-        error_msg = (
-            f"Config file '{path_str}' not found. Attempted locations:\n"
-            + "\n".join(f"  - {a}" for a in attempted)
+        raise FileNotFoundError(
+            "Config file not found.\n"
+            f"  Given: {path_str}\n"
+            "  Tried:\n    " + "\n    ".join(attempted)
         )
-        logger.error(error_msg)
-        raise FileNotFoundError(error_msg)
+
+    # ---------------- YAML helper ----------------
 
     @staticmethod
-    def load_config(config_file: str, env_config_file: Optional[str] = None) -> Dict:
-        """
-        Load base config, optionally merge env config on top (env overrides base).
-        """
-        base_path = ConfigUtils._resolve_path(config_file)
-        with open(base_path, "r") as f:
-            config = yaml.safe_load(f) or {}
-
-        if env_config_file:
-            env_path = ConfigUtils._resolve_path(env_config_file)
-            with open(env_path, "r") as f:
-                env_cfg = yaml.safe_load(f) or {}
-            # shallow merge; replace with deep merge if you need nested overriding
-            config.update(env_cfg)
-
-        return config
+    def _load_yaml_file(path: Path) -> Dict[str, Any]:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        return data or {}
