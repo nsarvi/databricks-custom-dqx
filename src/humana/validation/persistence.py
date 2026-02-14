@@ -18,6 +18,30 @@ class TableSpec:
 
 
 class UCPersistenceManager:
+
+    from pyspark.sql import functions as F
+from pyspark.sql.types import ArrayType, StructType, MapType
+
+def errors_to_json_array(df):
+    if "_errors" not in df.columns:
+        return F.array().cast("array<string>")
+
+    dt = df.schema["_errors"].dataType
+
+    # DQX typical: array<struct> or array<map>
+    if isinstance(dt, ArrayType) and (isinstance(dt.elementType, StructType) or isinstance(dt.elementType, MapType)):
+        return F.when(F.col("_errors").isNull(), F.array().cast("array<string>")) \
+                .otherwise(F.transform(F.col("_errors"), lambda e: F.to_json(e)).cast("array<string>"))
+
+    # Already array<string>
+    if isinstance(dt, ArrayType):
+        return F.col("_errors").cast("array<string>")
+
+    # Scalar fallback (rare): wrap as single-element array
+    return F.when(F.col("_errors").isNull(), F.array().cast("array<string>")) \
+            .otherwise(F.array(F.col("_errors").cast("string")))
+
+
     def __init__(self, spark: SparkSession, config_utils, idea_cfg: Dict[str, Any], base_path: str):
         self.spark = spark
         self.config_utils = config_utils
