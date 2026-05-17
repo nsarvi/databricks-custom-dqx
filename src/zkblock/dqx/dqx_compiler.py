@@ -23,19 +23,20 @@ def compile_rule_pack_to_dqx_rules(
 ) -> List[DQRule]:
 
     rules: List[DQRule] = []
+    df_columns_list = list(df_columns) if df_columns is not None else None
 
     columns_cfg = rule_pack_cfg.get(YC.COLUMNS_KEY, {})
     fast_fail = bool(rule_pack_cfg.get(YC.FAST_FAIL_KEY, False))
     logger.debug("Fast fail mode: %s", fast_fail)
 
     # Build a lookup for column existence if df_columns is provided
-    if df_columns is not None:
+    if df_columns_list is not None:
         if case_insensitive:
-            df_col_map = {c.lower(): c for c in df_columns}
+            df_col_map = {c.lower(): c for c in df_columns_list}
             def col_exists(col: str) -> bool:
                 return col.lower() in df_col_map
         else:
-            df_col_set = set(df_columns)
+            df_col_set = set(df_columns_list)
             def col_exists(col: str) -> bool:
                 return col in df_col_set
     else:
@@ -43,9 +44,37 @@ def compile_rule_pack_to_dqx_rules(
         def col_exists(col: str) -> bool:
             return True
 
+    def _metadata(rule_cfg: Dict[str, Any]) -> Dict[str, Any]:
+        yaml_user_metadata = rule_cfg.get(YC.METADATA_KEY, {}) or {}
+        validation_message = rule_cfg.get(YC.MESSAGE_KEY, "") or ""
+        if validation_message:
+            user_metadata = dict(yaml_user_metadata)
+            user_metadata[YC.VALIDATION_MESSAGE_KEY] = validation_message
+            return user_metadata
+        return yaml_user_metadata
+
+    def _resolve_row_anchor(rule_cfg: Dict[str, Any]) -> str:
+        anchor = (
+            rule_cfg.get("anchor_column")
+            or rule_cfg.get("column")
+            or rule_pack_cfg.get("row_anchor_column")
+        )
+        if anchor:
+            if df_columns_list is not None and not col_exists(anchor):
+                raise ValueError(f"Pack-level row rule anchor column does not exist: {anchor}")
+            return anchor
+
+        if df_columns_list:
+            return df_columns_list[0]
+
+        raise ValueError(
+            "Pack-level row rules require either df_columns or an explicit "
+            "'anchor_column'/'row_anchor_column'."
+        )
+
     for col_name, col_payload in columns_cfg.items():
         # If we are DF-aware, skip columns not present
-        if df_columns is not None and not col_exists(col_name):
+        if df_columns_list is not None and not col_exists(col_name):
             logger.warning(
                 f"Skipping all rules for column {col_name} because it does not exist in the DataFrame."
             )
@@ -103,14 +132,6 @@ def compile_rule_pack_to_dqx_rules(
             )
         else:
             for rule_cfg in col_rules:
-                yaml_user_metadata = rule_cfg.get(YC.METADATA_KEY, {})
-                validation_message = rule_cfg.get(YC.MESSAGE_KEY, "")
-                if validation_message:
-                    user_metadata = dict(yaml_user_metadata)
-                    user_metadata[YC.VALIDATION_MESSAGE_KEY] = validation_message
-                else:
-                    user_metadata = yaml_user_metadata
-
                 rules.append(
                     DQRowRule(
                         column=col_name,
@@ -120,9 +141,26 @@ def compile_rule_pack_to_dqx_rules(
                         filter=rule_cfg.get(YC.FILTER_KEY, None),
                         check_func_args=[],
                         check_func_kwargs=dict(rule_cfg.get(YC.ARGUMENTS_KEY, {}) or {}),
-                        user_metadata=user_metadata
+                        user_metadata=_metadata(rule_cfg)
                     )
                 )
+
+    # Construct pack-level row rules. These are useful for composite row checks
+    # that are not naturally owned by a single physical column.
+    for rule_cfg in rule_pack_cfg.get(YC.RULES_KEY, []) or []:
+        anchor_column = _resolve_row_anchor(rule_cfg)
+        rules.append(
+            DQRowRule(
+                column=anchor_column,
+                check_func=registry.get_row(rule_cfg[YC.ID_KEY]),
+                name=rule_cfg[YC.ID_KEY],
+                criticality=(rule_cfg.get(YC.CRITICALITY_KEY, "error") or "error").lower(),
+                filter=rule_cfg.get(YC.FILTER_KEY, None),
+                check_func_args=[],
+                check_func_kwargs=dict(rule_cfg.get(YC.ARGUMENTS_KEY, {}) or {}),
+                user_metadata=_metadata(rule_cfg),
+            )
+        )
 
     # Construct dataset-level rules
     ds_rules_cfg = rule_pack_cfg.get(YC.DATASET_RULES_KEY, [])

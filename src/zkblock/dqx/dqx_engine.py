@@ -9,6 +9,7 @@ from idea4.dqx.dqx_rule_registry import DQRuleRegistry
 from idea4.dqx import yaml_constants as YC
 from idea4.dqx.base_dqx_engine import BaseDQXEngine
 from idea4.dqx.dqx_compiler import compile_rule_pack_to_dqx_rules
+from idea4.dqx.custom_rules.timeliness import precompute_timeliness_common_rules
 
 from idea4.dqx.utils.logging_utils import LoggingHandler
 from idea4.dqx.runtime_context import get_runtime_context
@@ -61,10 +62,16 @@ class Idea4DQXEngine(BaseDQXEngine):
             # Caller-provided refs override same keys from config
             effective_ref_dfs.update(ref_dfs)
 
+        input_df = df
+        df, technical_cols = precompute_timeliness_common_rules(df, rule_pack_config)
         dq_rules = compile_rule_pack_to_dqx_rules(rule_pack_config, self.registry, df.columns)
 
         logger.info(f"Applying DQX rules for {rule_pack_id}")
         valid_df, quarantine_df = self.dq_engine.apply_checks_and_split(df, dq_rules, effective_ref_dfs)
+
+        if technical_cols:
+            valid_df = valid_df.drop(*[c for c in technical_cols if c in valid_df.columns])
+            quarantine_df = quarantine_df.drop(*[c for c in technical_cols if c in quarantine_df.columns])
 
         fast_fail = bool(rule_pack_config.get(YC.FAST_FAIL_KEY, False))
         if fast_fail:
@@ -80,7 +87,7 @@ class Idea4DQXEngine(BaseDQXEngine):
 
         if YC.DQX_METRICS_PERSISTENCE_KEY in self.dqx_config and self.dqx_config[YC.DQX_METRICS_PERSISTENCE_KEY].get(YC.ENABLED_KEY, False):
             logger.debug(f"Persisting results for rule_pack_id {rule_pack_id}")
-            self.persist_dqx_metrics(rule_pack_id, df, valid_df, quarantine_df, extra_meta)
+            self.persist_dqx_metrics(rule_pack_id, input_df, valid_df, quarantine_df, extra_meta)
             logger.debug(f"Completed Persisting results for rule_pack_id {rule_pack_id}")
         return valid_df, quarantine_df, summary_df
 

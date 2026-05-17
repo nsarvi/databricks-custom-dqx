@@ -1,0 +1,187 @@
+rule_packs:
+  - id: pcsl_2027_timeliness
+    rule_version: "1.0"
+    category: PCSL
+    subcategory: Timeliness
+    rule_type: row
+    fast_fail: false
+
+    columns:
+      Date Request Received:
+        rules:
+          - id: row.timeliness_matrix
+            criticality: error
+            message: "PCSL timeliness validation failed"
+            arguments:
+              alias: pcsl_timeliness_test_code
+
+              columns:
+                primary_part_b: "Is this a Primary Part B Drug Request?"
+                processing_priority: "Processing Priority"
+                disposition: "Disposition"
+                extension_taken: "Was an extension taken?"
+                request_received_date: "Date Request Received"
+                aor_received_date: "AOR/Equivalent Notice Receipt Date"
+                verbal_notification_date: "Date verbal notification provided"
+                written_notification_date: "Date written notification provided"
+
+              date_parsing:
+                accepted_formats:
+                  - "yyyy-MM-dd"
+                  - "MM/dd/yyyy"
+                  - "M/d/yyyy"
+                invalid_values:
+                  - "NA"
+                  - "N/A"
+                  - ""
+
+              emit:
+                match_policy: first
+                code_separator: "|"
+
+              common_validations:
+                population:
+                  all:
+                    - field: primary_part_b
+                      op: eq
+                      value: "N"
+                    - field: processing_priority
+                      op: eq
+                      value: "S"
+                    - field: disposition
+                      op: in
+                      values: ["F", "P", "A"]
+
+                required_valid_dates:
+                  - request_received_date
+                  - verbal_notification_date
+
+              variants:
+                - error_code: "T100.1"
+                  description: "Standard approval/denial, verbal and written notice, AOR present, no extension"
+                  when:
+                    all:
+                      - field: extension_taken
+                        op: eq
+                        value: "N"
+                  additional_valid_dates:
+                    - aor_received_date
+                    - written_notification_date
+                  date_order:
+                    before: verbal_notification_date
+                    after: written_notification_date
+                  start_date:
+                    strategy: latest_of
+                    fields:
+                      - request_received_date
+                      - aor_received_date
+                  end_date: verbal_notification_date
+                  calendar_days:
+                    op: gt
+                    value: 7
+                  metadata:
+                    test_code: "T100.1"
+                    skip_when_logical_rules_fail: ["L029.1", "L028.1"]
+
+                - error_code: "T100.2"
+                  description: "Standard approval/denial, verbal and written notice, no AOR, no extension"
+                  when:
+                    all:
+                      - field: extension_taken
+                        op: eq
+                        value: "N"
+                      - field: aor_received_date
+                        op: eq_ci
+                        value: "NA"
+                  additional_valid_dates:
+                    - written_notification_date
+                  date_order:
+                    before: verbal_notification_date
+                    after: written_notification_date
+                  start_date:
+                    strategy: field
+                    field: request_received_date
+                  end_date: verbal_notification_date
+                  calendar_days:
+                    op: gt
+                    value: 7
+                  metadata:
+                    test_code: "T100.2"
+                    skip_when_logical_rules_fail: ["L029.1"]
+
+                - error_code: "T100.3"
+                  description: "Standard approval/denial, verbal and written notice, AOR present, with extension"
+                  when:
+                    all:
+                      - field: extension_taken
+                        op: eq
+                        value: "Y"
+                  additional_valid_dates:
+                    - aor_received_date
+                    - written_notification_date
+                  date_order:
+                    before: verbal_notification_date
+                    after: written_notification_date
+                  start_date:
+                    strategy: latest_of
+                    fields:
+                      - request_received_date
+                      - aor_received_date
+                  end_date: verbal_notification_date
+                  calendar_days:
+                    op: gt
+                    value: 21
+                  metadata:
+                    test_code: "T100.3"
+                    skip_when_logical_rules_fail: ["L029.1", "L028.1"]
+
+                - error_code: "T100.4"
+                  description: "Standard approval/denial, verbal and written notice, no AOR, with extension"
+                  when:
+                    all:
+                      - field: extension_taken
+                        op: eq
+                        value: "Y"
+                      - field: aor_received_date
+                        op: eq_ci
+                        value: "NA"
+                  additional_valid_dates:
+                    - written_notification_date
+                  date_order:
+                    before: verbal_notification_date
+                    after: written_notification_date
+                  start_date:
+                    strategy: field
+                    field: request_received_date
+                  end_date: verbal_notification_date
+                  calendar_days:
+                    op: gt
+                    value: 21
+                  metadata:
+                    test_code: "T100.4"
+                    skip_when_logical_rules_fail: ["L029.1"]
+
+                - error_code: "T101.1"
+                  description: "Standard approval/denial, verbal notice only, AOR present, no extension"
+                  when:
+                    all:
+                      - field: extension_taken
+                        op: eq
+                        value: "N"
+                      - field: written_notification_date
+                        op: eq_ci
+                        value: "NA"
+                  additional_valid_dates:
+                    - aor_received_date
+                  start_date:
+                    strategy: latest_of
+                    fields:
+                      - request_received_date
+                      - aor_received_date
+                  end_date: verbal_notification_date
+                  calendar_days:
+                    op: gt
+                    value: 7
+                  metadata:
+                    test_code: "T101.1"
+                    skip_when_logical_rules_fail: ["L029.1", "L028.1"]

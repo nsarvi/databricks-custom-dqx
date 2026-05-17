@@ -1,0 +1,186 @@
+version: 1
+description: "PCSL 2027 timeliness rules - first five rules from PDF"
+
+rule_packs:
+  - id: pcsl_2027_timeliness_first5
+    rule_version: "1.0"
+    category: PCSL
+    subcategory: Timeliness
+    rule_type: row
+    fast_fail: false
+
+    # Optional. If omitted, the compiler uses the first incoming DataFrame column
+    # as the DQX row-rule anchor for pack-level composite rules.
+    row_anchor_column: ORG_DETRMN_NUM
+
+    rules:
+      - id: row.timeliness_matrix
+        criticality: error
+        message: "PCSL timeliness validation failed"
+        arguments:
+          alias: pcsl_timeliness_test_code
+          precompute_common_rules: true
+
+          columns:
+            primary_part_b: "Is this a Primary Part B Drug Request?"
+            processing_priority: "Processing Priority"
+            disposition: "Disposition"
+            extension_taken: "Was an extension taken?"
+            request_received_date: "Date Request Received"
+            aor_received_date: "AOR/Equivalent Notice Receipt Date"
+            verbal_notification_date: "Date verbal notification provided"
+            written_notification_date: "Date written notification provided"
+
+          date_parsing:
+            accepted_formats:
+              - "yyyy-MM-dd"
+              - "MM/dd/yyyy"
+              - "M/d/yyyy"
+            invalid_values:
+              - "NA"
+              - "N/A"
+              - ""
+
+          emit:
+            match_policy: first
+            code_separator: "|"
+
+          common_rules:
+            standard_non_part_b_approval_denial:
+              materialize_as: "__dqx_timeliness_common__standard_non_part_b_approval_denial"
+              sql_expression: >
+                `Is this a Primary Part B Drug Request?` = 'N'
+                AND `Processing Priority` = 'S'
+                AND `Disposition` IN ('F', 'P', 'A')
+
+            no_extension:
+              materialize_as: "__dqx_timeliness_common__no_extension"
+              sql_expression: "`Was an extension taken?` = 'N'"
+
+            with_extension:
+              materialize_as: "__dqx_timeliness_common__with_extension"
+              sql_expression: "`Was an extension taken?` = 'Y'"
+
+            request_and_verbal_valid:
+              materialize_as: "__dqx_timeliness_common__request_and_verbal_valid"
+              valid_dates:
+                - request_received_date
+                - verbal_notification_date
+
+            aor_valid:
+              materialize_as: "__dqx_timeliness_common__aor_valid"
+              valid_dates:
+                - aor_received_date
+
+            aor_na:
+              materialize_as: "__dqx_timeliness_common__aor_na"
+              sql_expression: "upper(trim(cast(`AOR/Equivalent Notice Receipt Date` as string))) = 'NA'"
+
+            written_valid:
+              materialize_as: "__dqx_timeliness_common__written_valid"
+              valid_dates:
+                - written_notification_date
+
+            written_na:
+              materialize_as: "__dqx_timeliness_common__written_na"
+              sql_expression: "upper(trim(cast(`Date written notification provided` as string))) = 'NA'"
+
+            verbal_before_written:
+              materialize_as: "__dqx_timeliness_common__verbal_before_written"
+              date_order:
+                before: verbal_notification_date
+                after: written_notification_date
+
+          date_points:
+            request_received:
+              strategy: field
+              field: request_received_date
+
+            later_request_or_aor:
+              strategy: latest_of
+              fields:
+                - request_received_date
+                - aor_received_date
+
+            verbal_notification:
+              strategy: field
+              field: verbal_notification_date
+
+          sla_rules:
+            gt_7_calendar_days:
+              op: gt
+              value: 7
+
+            gt_21_calendar_days:
+              op: gt
+              value: 21
+
+          rules:
+            - id: T100.1
+              test_code: "T100.1"
+              description: "Untimely verbal notification - standard approval/denial with verbal and written notice, AOR date present, no extension"
+              use_common_rules:
+                - standard_non_part_b_approval_denial
+                - no_extension
+                - request_and_verbal_valid
+                - aor_valid
+                - written_valid
+                - verbal_before_written
+              start: later_request_or_aor
+              end: verbal_notification
+              sla: gt_7_calendar_days
+
+            - id: T100.2
+              test_code: "T100.2"
+              description: "Untimely verbal notification - standard approval/denial with verbal and written notice, no AOR date, no extension"
+              use_common_rules:
+                - standard_non_part_b_approval_denial
+                - no_extension
+                - request_and_verbal_valid
+                - aor_na
+                - written_valid
+                - verbal_before_written
+              start: request_received
+              end: verbal_notification
+              sla: gt_7_calendar_days
+
+            - id: T100.3
+              test_code: "T100.3"
+              description: "Untimely verbal notification - standard approval/denial with verbal and written notice, AOR date present, with extension"
+              use_common_rules:
+                - standard_non_part_b_approval_denial
+                - with_extension
+                - request_and_verbal_valid
+                - aor_valid
+                - written_valid
+                - verbal_before_written
+              start: later_request_or_aor
+              end: verbal_notification
+              sla: gt_21_calendar_days
+
+            - id: T100.4
+              test_code: "T100.4"
+              description: "Untimely verbal notification - standard approval/denial with verbal and written notice, no AOR date, with extension"
+              use_common_rules:
+                - standard_non_part_b_approval_denial
+                - with_extension
+                - request_and_verbal_valid
+                - aor_na
+                - written_valid
+                - verbal_before_written
+              start: request_received
+              end: verbal_notification
+              sla: gt_21_calendar_days
+
+            - id: T101.1
+              test_code: "T101.1"
+              description: "Untimely verbal notification - standard approval/denial with verbal notice only, AOR date present, no extension"
+              use_common_rules:
+                - standard_non_part_b_approval_denial
+                - no_extension
+                - request_and_verbal_valid
+                - aor_valid
+                - written_na
+              start: later_request_or_aor
+              end: verbal_notification
+              sla: gt_7_calendar_days
