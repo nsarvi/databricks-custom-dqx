@@ -1,4 +1,3 @@
-
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
 
@@ -20,6 +19,5 @@ class ColumnSpec:
 @dataclass(frozen=True)
 class ValidationSpec:
     id: str
-    table_name: Optional[str]
     columns: List[ColumnSpec]
     dataset_rules: List[RuleSpec] = field(default_factory=list)

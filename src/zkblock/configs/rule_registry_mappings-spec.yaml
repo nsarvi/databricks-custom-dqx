@@ -1,0 +1,16 @@
+version: 1.0
+description: "Mapping of validation functions to function names"
+
+row_rules:
+  - id: <Rule ID>                                                 # Required and its should be unique
+    callable_ref: <Function name including the module>      # Required and its should be unique
+    description: <Short description of the function>              # Optional
+    since_version: <Version when the function was introduced>     # Optional
+    deprecated: <false/true If the function is deprecated or not> # Optional
+
+dataset_rules:                                   
+  - id: <Dataset Rule ID>                                         # Required and its should be unique
+    callable_ref: <Function name including the module>      # Required and its should be unique
+    description: <Short description of the function>              # Optional
+    since_version: <Version when the function was introduced>     # Optional
+    deprecated: <false|true>                                      # Optional

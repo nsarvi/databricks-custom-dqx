@@ -1,0 +1,14 @@
+version: 1
+description: >
+  DI (integrity) + DV (validity) rules that can be applied
+  to any DataFrame which has the columns referenced below.
+
+# Configurations for the source table(s)
+sources:
+  - source_id: "<Unique Source ID>"                              # Required     
+    rule_pack_id: "rule_pack_id"                                 # Required 
+    table_name: "<Fully qualified table name>"                   # Optional
+    subquery: |                                                  # Optional <SQL Query>
+      <SQL Query>                                                    
+    sql_file: "<Path to the SQL file>"                           # Optional
+    read_type: "table"                                           # Optional "table", "stream", "cdf"

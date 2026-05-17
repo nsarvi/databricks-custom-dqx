@@ -1,0 +1,47 @@
+version: 1
+description: >
+  DI (integrity) + DV (validity) rules that can be applied
+  to any DataFrame which has the columns referenced below.
+
+imports:
+  - <rule_pack_config.yaml>
+  - <rule_pack_config.yaml>
+
+rule_packs:
+  - id: <Unique Rule Pack ID>                                   # Required 
+    rule_version: <Version of the rule>                         # Required
+    extends:                                                    # Optional
+      - <Rule ID> 
+    depends_on:                                                 # Optional
+      - <Rule ID> 
+    category: <Category of the process>                         # Optional
+    subcategory: <Sub Category of the process>                  # Optional
+    rule_type: <Rule type>                                      # Optional
+    fast_fail: true                                             # Optional        
+    columns:
+      ORG_DETRMN_NUM:                                           # Required and its DF/Table column name
+        replace_rules: [Rule Id>]                               # Optional 
+        rules:
+          - id: <Rule ID>                                       # Required and its rule ID mentioned in the rule_mapping.yaml
+            criticality: <error|warn|info>                      # Required: error|warn|info
+            message: <Mesage to the function>                   # Required
+            arguments:                                          # Optional   
+              arg1: v1                                          # Actual function arguments and name
+              arg2: v2
+              
+            metadata:                                           # Optional
+              error_dictionary_test_cd: "A.1"                   # Optional and any user defined metadata can be passed    
+
+    dataset_rules:                                              # Define dataset rules
+      - id: <Dataset Rule ID or dotted.path>                    # Required
+        criticality: <error|warn|info>                          # Required: error|warn|info
+        depends_on:                                             # Optional
+          - <Rule ID> 
+        message: <Message to the rule>                          # Optional; becomes metadata.validation_message
+        filter: <Spark SQL boolean expr>                        # Optional: gate the dataset check
+        arguments:                                              # Optional: rule parameters
+          key1: value1
+          key2: value2
+        metadata:                                               # Optional: arbitrary user metadata
+          owner: dq-team                                        # Optional: any user defined metadata can be passed
+          error_dictionary_test_cd: "A.1"                       # Optional

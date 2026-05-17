@@ -1,0 +1,43 @@
+version: '1.0'
+description: 'Idea4 DQX Configuration file to specifiy the default configurations'
+
+rule_mapping_files:
+    - <path to rule_mapping-1.yaml>
+    - <path to rule_mapping-2.yaml>
+    - <path to rule_mapping-3.yaml>
+
+reference_tables:                                               # <- optional mapping of reference table names to reference table locations (e.g. required for foreign key check)
+    <reference_table_id_1>:                                     # <- name of the reference table      
+      table_name: "<Fully qualified table name>"                   # Optional
+      subquery: |                                                  # Optional <SQL Query>
+        <SQL Query>                                                    
+      sql_file: "<Path to the SQL file>"                           # Optional
+      read_type: "table"                                           # Optional "table", "stream", "cdf"        
+    <reference_table_id_2>:                                  # <- another reference table
+      table_name: "<Fully qualified table name>"                   # Optional
+      subquery: |                                                  # Optional <SQL Query>
+        <SQL Query>                                                    
+      sql_file: "<Path to the SQL file>"                           # Optional
+      read_type: "table"                                           # Optional "table", "stream", "cdf"
+
+dqx_metrics_persistence:
+  enabled: <true|false To enable or disable Validation Metrics>
+
+  tables:
+    dqx_summary:
+      name: <Fully qualified table name to store Validation Summary>        # Required
+      schema_file: <Path of the Schema file for Validation Summary Table>   # Required
+      format: <Delta or Iceberg>                                            # Optional
+      mode: <append or overwrite>                                           # Optional
+      options:                                                              # Optional                         
+        mergeSchema: <true|false>                                           # Optional
+        overwriteSchema: <true|false>                                       # Optional 
+
+    dqx_quarantine:
+      name: <Fully qualified table name to store Quarantine Data >        # Required
+      schema_file: <Path of the Schema file for Quarantine Table>         # Required
+      format: <Delta or Iceberg>                                          # Optional
+      mode: <append or overwrite>                                         # Optional
+      options:                                                            # Optional                          
+        mergeSchema: <true|false>                                         # Optional 
+        overwriteSchema: <true|false>                                     # Optional 
