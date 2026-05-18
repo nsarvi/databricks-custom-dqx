@@ -2,10 +2,10 @@ from __future__ import annotations
 from typing import Any, Dict, List, Union
 
 from databricks.labs.dqx.rule import DQRowRule, DQDatasetRule
-from idea4.dqx.dqx_rule_registry import DQRuleRegistry
-from idea4.dqx import yaml_constants as YC
+from zkblock.dqx.dqx_rule_registry import DQRuleRegistry
+from zkblock.dqx import yaml_constants as YC
 from databricks.labs.dqx.rule import DQRule
-from idea4.dqx.utils.logging_utils import LoggingHandler
+from zkblock.dqx.utils.logging_utils import LoggingHandler
 
 # DQRuleT = Union[DQRowRule, DQDatasetRule]
 

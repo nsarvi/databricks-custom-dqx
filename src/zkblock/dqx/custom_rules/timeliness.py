@@ -47,7 +47,7 @@ class TimelinessContext:
     @classmethod
     def from_config(
         cls,
-        columns: Dict[str, str],
+        columns: Optional[Dict[str, str]],
         date_parsing: Optional[Dict[str, Any]],
     ) -> "TimelinessContext":
         date_parsing = date_parsing or {}
@@ -57,7 +57,7 @@ class TimelinessContext:
             if v is not None
         }
         return cls(
-            columns=columns,
+            columns=columns or {},
             accepted_formats=date_parsing.get("accepted_formats") or [],
             invalid_date_values=invalid_values,
         )
@@ -244,7 +244,7 @@ class TimelinessMatrixCompiler:
     def __init__(
         self,
         *,
-        columns: Dict[str, str],
+        columns: Optional[Dict[str, str]],
         common_validations: Optional[Dict[str, Any]],
         common_rules: Optional[Dict[str, Any]],
         date_points: Optional[Dict[str, Any]],
@@ -395,7 +395,7 @@ def precompute_timeliness_common_rules(
 def timeliness_matrix(
     column: str,
     *,
-    columns: Dict[str, str],
+        columns: Optional[Dict[str, str]] = None,
     common_validations: Optional[Dict[str, Any]] = None,
     variants: Optional[List[Dict[str, Any]]] = None,
     rules: Optional[List[Dict[str, Any]]] = None,
@@ -418,7 +418,7 @@ def timeliness_matrix(
     code_separator = emit.get("code_separator") or "|"
 
     compiler = TimelinessMatrixCompiler(
-        columns=columns,
+        columns=columns or {},
         common_validations=common_validations,
         common_rules=common_rules,
         date_points=date_points,

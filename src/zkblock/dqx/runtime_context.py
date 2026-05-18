@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pyspark.dbutils import DBUtils
-from idea4.dqx import yaml_constants as YC
-from idea4.dqx.utils.logging_utils import LoggingHandler
+from zkblock.dqx import yaml_constants as YC
+from zkblock.dqx.utils.logging_utils import LoggingHandler
 
 
 logger = LoggingHandler(__name__).get_logger()

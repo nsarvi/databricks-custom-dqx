@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 from databricks.labs.dqx.check_funcs import make_condition
 from pyspark.sql import Column
 
-from idea4.dqx.custom_rules.timeliness import PredicateCompiler, TimelinessContext
+from zkblock.dqx.custom_rules.timeliness import PredicateCompiler, TimelinessContext
 
 
 def _predicate(

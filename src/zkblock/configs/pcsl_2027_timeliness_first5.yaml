@@ -21,16 +21,6 @@ rule_packs:
           alias: pcsl_timeliness_test_code
           precompute_common_rules: true
 
-          columns:
-            primary_part_b: "Is this a Primary Part B Drug Request?"
-            processing_priority: "Processing Priority"
-            disposition: "Disposition"
-            extension_taken: "Was an extension taken?"
-            request_received_date: "Date Request Received"
-            aor_received_date: "AOR/Equivalent Notice Receipt Date"
-            verbal_notification_date: "Date verbal notification provided"
-            written_notification_date: "Date written notification provided"
-
           date_parsing:
             accepted_formats:
               - "yyyy-MM-dd"
@@ -64,13 +54,13 @@ rule_packs:
             request_and_verbal_valid:
               materialize_as: "__dqx_timeliness_common__request_and_verbal_valid"
               valid_dates:
-                - request_received_date
-                - verbal_notification_date
+                - "Date Request Received"
+                - "Date verbal notification provided"
 
             aor_valid:
               materialize_as: "__dqx_timeliness_common__aor_valid"
               valid_dates:
-                - aor_received_date
+                - "AOR/Equivalent Notice Receipt Date"
 
             aor_na:
               materialize_as: "__dqx_timeliness_common__aor_na"
@@ -79,7 +69,7 @@ rule_packs:
             written_valid:
               materialize_as: "__dqx_timeliness_common__written_valid"
               valid_dates:
-                - written_notification_date
+                - "Date written notification provided"
 
             written_na:
               materialize_as: "__dqx_timeliness_common__written_na"
@@ -88,23 +78,23 @@ rule_packs:
             verbal_before_written:
               materialize_as: "__dqx_timeliness_common__verbal_before_written"
               date_order:
-                before: verbal_notification_date
-                after: written_notification_date
+                before: "Date verbal notification provided"
+                after: "Date written notification provided"
 
           date_points:
             request_received:
               strategy: field
-              field: request_received_date
+              field: "Date Request Received"
 
             later_request_or_aor:
               strategy: latest_of
               fields:
-                - request_received_date
-                - aor_received_date
+                - "Date Request Received"
+                - "AOR/Equivalent Notice Receipt Date"
 
             verbal_notification:
               strategy: field
-              field: verbal_notification_date
+              field: "Date verbal notification provided"
 
           sla_rules:
             gt_7_calendar_days:

@@ -5,20 +5,20 @@ import uuid
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
-from idea4.dqx.dqx_rule_registry import DQRuleRegistry
-from idea4.dqx import yaml_constants as YC
-from idea4.dqx.base_dqx_engine import BaseDQXEngine
-from idea4.dqx.dqx_compiler import compile_rule_pack_to_dqx_rules
-from idea4.dqx.custom_rules.timeliness import precompute_timeliness_common_rules
+from zkblock.dqx.dqx_rule_registry import DQRuleRegistry
+from zkblock.dqx import yaml_constants as YC
+from zkblock.dqx.base_dqx_engine import BaseDQXEngine
+from zkblock.dqx.dqx_compiler import compile_rule_pack_to_dqx_rules
+from zkblock.dqx.custom_rules.timeliness import precompute_timeliness_common_rules
 
-from idea4.dqx.utils.logging_utils import LoggingHandler
-from idea4.dqx.runtime_context import get_runtime_context
+from zkblock.dqx.utils.logging_utils import LoggingHandler
+from zkblock.dqx.runtime_context import get_runtime_context
 
 
 logger = LoggingHandler(__name__).get_logger()
 
 
-class Idea4DQXEngine(BaseDQXEngine):
+class ZkblockDQXEngine(BaseDQXEngine):
 
     def __init__(self, validation_config_path: str, dqx_config_file: str = None):
         logger.debug(f"Parameters passed in: validation_config_path={validation_config_path}, dqx_config_file={dqx_config_file}")
@@ -56,7 +56,7 @@ class Idea4DQXEngine(BaseDQXEngine):
             logger.error(f"DataFrame not provided for {rule_pack_id}")
             return
 
-        # If caller didn't pass any refs, use the ones loaded from idea4_dqx_config
+        # If caller didn't pass any refs, use the ones loaded from zkblock_dqx_config
         effective_ref_dfs = self.reference_dfs
         if ref_dfs:
             # Caller-provided refs override same keys from config

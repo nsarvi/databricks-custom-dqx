@@ -6,16 +6,16 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.types import StringType, StructType, ArrayType, MapType
 from databricks.connect import DatabricksSession
-from idea4.dqx import yaml_constants as YC
+from zkblock.dqx import yaml_constants as YC
 from pyspark.sql import Column
-from idea4.dqx.dqx_rule_registry import DQRuleRegistry
-from idea4.dqx.persistence import PersistenceManager
-from idea4.dqx.utils.logging_utils import LoggingHandler
-from idea4.dqx.utils.config_utils import ConfigUtils
+from zkblock.dqx.dqx_rule_registry import DQRuleRegistry
+from zkblock.dqx.persistence import PersistenceManager
+from zkblock.dqx.utils.logging_utils import LoggingHandler
+from zkblock.dqx.utils.config_utils import ConfigUtils
 from databricks.labs.dqx.engine import DQEngine
 from databricks.sdk import WorkspaceClient
 from pyspark.dbutils import DBUtils
-from idea4.dqx.table_reader import TableReader
+from zkblock.dqx.table_reader import TableReader
 
 
 logger = LoggingHandler(__name__).get_logger()
@@ -128,7 +128,7 @@ class BaseDQXEngine:
         return registry
 
     def _load_and_merge_dqx_configs(self, dqx_config_file: str = None) -> Dict:
-        """Loads the idea4_dqx_config.yaml file into two dicts, keyed by validation id."""
+        """Loads the zkblock_dqx_config.yaml file into two dicts, keyed by validation id."""
         config_file = dqx_config_file or YC.DEFAULT_DQX_CONFIG_FILE
         logger.info(f"Loading DQX config from {config_file}")
         default_dqx_config = ConfigUtils.load_dqx_config(YC.DEFAULT_DQX_CONFIG_FILE)
@@ -163,7 +163,7 @@ class BaseDQXEngine:
             try:
                 df = self.table_reader.read_source_table(
                     {
-                        # Map your idea4_dqx_config structure to TableReader's expected keys
+                        # Map your zkblock_dqx_config structure to TableReader's expected keys
                         YC.SOURCE_ID_KEY: ref_id,
                         YC.READ_TYPE_KEY: src.get(YC.READ_TYPE_KEY, YC.TABLE_KEY),
                         YC.TABLE_NAME_KEY: src.get(YC.TABLE_NAME_KEY),

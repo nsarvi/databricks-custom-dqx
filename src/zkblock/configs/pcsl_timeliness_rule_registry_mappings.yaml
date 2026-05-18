@@ -3,61 +3,61 @@ description: "PCSL timeliness custom rule mappings"
 
 row_rules:
   - id: row.timeliness_matrix
-    callable_ref: idea4.dqx.custom_rules.timeliness.timeliness_matrix
+    callable_ref: zkblock.dqx.custom_rules.timeliness.timeliness_matrix
     description: "Reusable PCSL timeliness matrix that emits matching T test_code"
     since_version: "1.0"
     deprecated: false
 
   - id: pcsl.common.standard_non_part_b_approval_denial
-    callable_ref: idea4.dqx.custom_rules.timeliness_common.standard_non_part_b_approval_denial
+    callable_ref: zkblock.dqx.custom_rules.timeliness_common.standard_non_part_b_approval_denial
     description: "Common PCSL predicate: non-Part B, standard priority, approval/denial disposition"
     since_version: "1.0"
     deprecated: false
 
   - id: pcsl.common.no_extension
-    callable_ref: idea4.dqx.custom_rules.timeliness_common.no_extension
+    callable_ref: zkblock.dqx.custom_rules.timeliness_common.no_extension
     description: "Common PCSL predicate: no extension"
     since_version: "1.0"
     deprecated: false
 
   - id: pcsl.common.with_extension
-    callable_ref: idea4.dqx.custom_rules.timeliness_common.with_extension
+    callable_ref: zkblock.dqx.custom_rules.timeliness_common.with_extension
     description: "Common PCSL predicate: extension taken"
     since_version: "1.0"
     deprecated: false
 
   - id: pcsl.common.request_and_verbal_valid
-    callable_ref: idea4.dqx.custom_rules.timeliness_common.request_and_verbal_valid
+    callable_ref: zkblock.dqx.custom_rules.timeliness_common.request_and_verbal_valid
     description: "Common PCSL predicate: request and verbal notification dates are valid"
     since_version: "1.0"
     deprecated: false
 
   - id: pcsl.common.aor_valid
-    callable_ref: idea4.dqx.custom_rules.timeliness_common.aor_valid
+    callable_ref: zkblock.dqx.custom_rules.timeliness_common.aor_valid
     description: "Common PCSL predicate: AOR date is valid"
     since_version: "1.0"
     deprecated: false
 
   - id: pcsl.common.aor_na
-    callable_ref: idea4.dqx.custom_rules.timeliness_common.aor_na
+    callable_ref: zkblock.dqx.custom_rules.timeliness_common.aor_na
     description: "Common PCSL predicate: AOR date is NA"
     since_version: "1.0"
     deprecated: false
 
   - id: pcsl.common.written_valid
-    callable_ref: idea4.dqx.custom_rules.timeliness_common.written_valid
+    callable_ref: zkblock.dqx.custom_rules.timeliness_common.written_valid
     description: "Common PCSL predicate: written notification date is valid"
     since_version: "1.0"
     deprecated: false
 
   - id: pcsl.common.written_na
-    callable_ref: idea4.dqx.custom_rules.timeliness_common.written_na
+    callable_ref: zkblock.dqx.custom_rules.timeliness_common.written_na
     description: "Common PCSL predicate: written notification date is NA"
     since_version: "1.0"
     deprecated: false
 
   - id: pcsl.common.verbal_before_written
-    callable_ref: idea4.dqx.custom_rules.timeliness_common.verbal_before_written
+    callable_ref: zkblock.dqx.custom_rules.timeliness_common.verbal_before_written
     description: "Common PCSL predicate: verbal notification date is before written notification date"
     since_version: "1.0"
     deprecated: false

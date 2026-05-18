@@ -1,5 +1,5 @@
 version: '1.0'
-description: 'Idea4 DQX Configuration file to specifiy the default configurations'
+description: 'Zkblock DQX Configuration file to specifiy the default configurations'
 
 rule_mapping_files:
     - <path to rule_mapping-1.yaml>

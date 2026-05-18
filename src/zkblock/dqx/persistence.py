@@ -6,9 +6,9 @@ from typing import Any, Dict, List, Optional
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import StructType
 
-from idea4.dqx import yaml_constants as YC
-from idea4.dqx.utils.config_utils import ConfigUtils
-from idea4.dqx.utils.logging_utils import LoggingHandler
+from zkblock.dqx import yaml_constants as YC
+from zkblock.dqx.utils.config_utils import ConfigUtils
+from zkblock.dqx.utils.logging_utils import LoggingHandler
 
 
 logger = LoggingHandler(__name__).get_logger()
@@ -27,11 +27,11 @@ class TableSpec:
 
 class PersistenceManager :
 
-    def __init__(self, spark: SparkSession, idea4_config: Dict[str, Any]):
+    def __init__(self, spark: SparkSession, zkblock_config: Dict[str, Any]):
         self.logger = logger
         self.spark = spark
-        self.idea_cfg = idea4_config or {}
-        self.persistence_cfg = (self.idea_cfg.get(YC.DQX_METRICS_PERSISTENCE_KEY) or {})
+        self.zkblock_cfg = zkblock_config or {}
+        self.persistence_cfg = (self.zkblock_cfg.get(YC.DQX_METRICS_PERSISTENCE_KEY) or {})
         self.enabled = bool(self.persistence_cfg.get(YC.ENABLED_KEY, True))
         self.tables_cfg = (self.persistence_cfg.get(YC.TABLES_KEY) or {})
         self.schema_file_map: Dict[str, StructType] = {}

@@ -107,7 +107,7 @@ def set_level(level: str | int, namespace: str = DEFAULT_NAMESPACE) -> None:
 
 class LoggingHandler:
     """
-    Handle logging for the Idea4DQX engine.
+    Handle logging for the ZkblockDQX engine.
     """
 
     def __init__(self, name: str | None = None, *, namespace: str = DEFAULT_NAMESPACE):

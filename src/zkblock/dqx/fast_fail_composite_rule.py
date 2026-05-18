@@ -3,8 +3,8 @@ import inspect
 import pyspark.sql.functions as F
 from databricks.labs.dqx.check_funcs import make_condition
 import importlib
-from idea4.dqx import yaml_constants as YC
-from idea4.dqx.dqx_rule_registry import DQRuleRegistry
+from zkblock.dqx import yaml_constants as YC
+from zkblock.dqx.dqx_rule_registry import DQRuleRegistry
 from pyspark.sql import Column
 
 

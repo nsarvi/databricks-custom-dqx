@@ -5,9 +5,9 @@ import sys
 import yaml
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
-from idea4.dqx.utils.logging_utils import LoggingHandler
-from idea4.dqx import yaml_constants as YC
-from idea4.dqx.dqx_rule_registry import DQRuleRegistry
+from zkblock.dqx.utils.logging_utils import LoggingHandler
+from zkblock.dqx import yaml_constants as YC
+from zkblock.dqx.dqx_rule_registry import DQRuleRegistry
 from pyspark.sql.types import StructType
 from importlib import resources
 import copy
@@ -18,7 +18,7 @@ logger = LoggingHandler(__name__).get_logger()
 
 class ConfigUtils:
     """Utility class for handling configurations."""
-    DEFAULT_CONFIGS_MODULE = "idea4.configs"
+    DEFAULT_CONFIGS_MODULE = "zkblock.configs"
 
     @staticmethod
     def _normalize_path_str(path_str: str) -> str:

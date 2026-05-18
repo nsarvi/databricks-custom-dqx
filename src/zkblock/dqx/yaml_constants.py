@@ -1,5 +1,5 @@
 # Framework constants
-DEFAULT_DQX_CONFIG_FILE = "idea4/configs/idea4_dqx_config.yaml"
+DEFAULT_DQX_CONFIG_FILE = "zkblock/configs/zkblock_dqx_config.yaml"
 RULE_ID_KEY = "id"
 TABLE_KEY = "table"
 TABLES_KEY="tables"
@@ -15,7 +15,7 @@ PARTITION_BY_KEY = "partitioned_by"
 ENABLED_KEY = "enabled"
 REFERENCE_TABLES_KEY = "reference_tables"
 
-# Idea4 dqx constants
+# Zkblock dqx constants
 VERSION_KEY = "version"
 VERSION_DESCRIPTION_KEY = "description"
 GLOBAL_CONFIG_FILE_KEY = "global_config_file"
