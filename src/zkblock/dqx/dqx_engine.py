@@ -74,7 +74,8 @@ class ZkblockDQXEngine(BaseDQXEngine):
             quarantine_df = quarantine_df.drop(*[c for c in technical_cols if c in quarantine_df.columns])
 
         fast_fail = bool(rule_pack_config.get(YC.FAST_FAIL_KEY, False))
-        if fast_fail:
+        has_business_rules = bool(rule_pack_config.get(YC.BUSINESS_RULES_KEY))
+        if fast_fail or has_business_rules:
             quarantine_df = self._enrich_errors_from_config(quarantine_df, rule_pack_config)
 
         logger.info(f"Completed Applying DQX rules for {rule_pack_id}")

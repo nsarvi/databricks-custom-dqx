@@ -22,7 +22,7 @@ row_rules:
 
   - id: row.timeliness_matrix
     callable_ref: zkblock.dqx.custom_rules.timeliness.timeliness_matrix
-    description: "Reusable PCSL timeliness matrix that emits matching T test_code"
+    description: "Reusable business-rule matrix that emits matching metadata-driven rule codes"
     since_version: "1.0"
     deprecated: false
 

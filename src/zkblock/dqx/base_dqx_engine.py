@@ -301,6 +301,32 @@ class BaseDQXEngine:
 
                 rule_pack_map[f"{col_name}::{rid}"] = json.dumps(step_meta, ensure_ascii=False)
 
+        business_anchor = (
+            (rule_pack_cfg or {}).get(YC.ANCHOR_COLUMN_KEY)
+            or (rule_pack_cfg or {}).get("column")
+            or (rule_pack_cfg or {}).get(YC.ROW_ANCHOR_COLUMN_KEY)
+        )
+        if business_anchor:
+            for business_rule in (rule_pack_cfg or {}).get(YC.BUSINESS_RULES_KEY, []) or []:
+                for rule in (business_rule or {}).get(YC.RULES_KEY, []) or []:
+                    user_meta = rule.get(YC.METADATA_KEY) or {}
+                    emitted_code = (
+                        user_meta.get("error_dictionary_test_cd")
+                        or user_meta.get("rule_code")
+                        or (business_rule or {}).get(YC.ID_KEY)
+                    )
+                    if not emitted_code:
+                        continue
+
+                    step_meta = {}
+                    vm = (business_rule or {}).get(YC.MESSAGE_KEY) or rule.get(YC.MESSAGE_KEY)
+                    step_meta[YC.VALIDATION_MESSAGE_KEY] = vm if vm is not None else ""
+                    step_meta[YC.METADATA_KEY] = user_meta
+                    rule_pack_map[f"{business_anchor}::{emitted_code}"] = json.dumps(
+                        step_meta,
+                        ensure_ascii=False,
+                    )
+
         logger.debug(
             "Built step-metadata (validation_message + metadata) lookup with %d entries for rule pack: %s",
             len(rule_pack_map), rule_pack_cfg.get("id")
@@ -367,27 +393,23 @@ class BaseDQXEngine:
 
             json_blob = _lookup_json(x)  # JSON string or NULL
 
-            validation_message = F.coalesce(
-                F.get_json_object(json_blob, "$.validation_message"),
-                F.lit("")  # default
-            )
+            validation_message = F.get_json_object(json_blob, "$.validation_message")
 
             # metadata object as JSON string; parse to map then to_json to ensure "{}" when absent
-            metadata_json = F.coalesce(
-                F.to_json(
-                    F.from_json(
-                        F.get_json_object(json_blob, "$.metadata"),
-                        MapType(StringType(), StringType())
-                    )
-                ),
-                F.lit("{}")
+            metadata_json = F.to_json(
+                F.from_json(
+                    F.get_json_object(json_blob, "$.metadata"),
+                    MapType(StringType(), StringType())
+                )
             )
 
-            return F.map_concat(
-                base,
-                F.create_map(
-                    F.lit("validation_message"), validation_message,
-                    F.lit("metadata"), metadata_json
+            return F.when(json_blob.isNull(), base).otherwise(
+                F.map_concat(
+                    base,
+                    F.create_map(
+                        F.lit("validation_message"), validation_message,
+                        F.lit("metadata"), metadata_json
+                    )
                 )
             )
 

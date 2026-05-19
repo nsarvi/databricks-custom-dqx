@@ -113,22 +113,20 @@ class TimelinessMatrixCompiler:
         self.registry = registry
         self.compiled_precompute_rules = self._compile_precompute_rules(precompute_rules or {})
 
-    def compile_case_matches(self, timeliness_cases: List[Dict[str, Any]]) -> List[Column]:
-        return [self.compile_case(case_cfg) for case_cfg in timeliness_cases]
+    def compile_business_rule_matches(self, business_rules: List[Dict[str, Any]]) -> List[Column]:
+        return [self.compile_business_rule(rule_cfg) for rule_cfg in business_rules]
 
-    def compile_case(self, case_cfg: Dict[str, Any]) -> Column:
-        code = (
-            case_cfg.get("test_code")
-            or (case_cfg.get(YC.METADATA_KEY) or {}).get("test_code")
-            or case_cfg[YC.ID_KEY]
-        )
+    def compile_business_rule(self, business_rule_cfg: Dict[str, Any]) -> Column:
+        code = _business_rule_emit_code(business_rule_cfg)
 
-        case_gate = self._compile_referenced_precompute_rules(case_cfg)
-        case_gate = case_gate & _sql_condition(case_cfg.get("when"))
+        case_gate = self._compile_referenced_precompute_rules(business_rule_cfg)
+        case_gate = case_gate & _sql_condition(business_rule_cfg.get("when"))
 
-        case_rules = case_cfg.get(YC.RULES_KEY) or []
+        case_rules = business_rule_cfg.get(YC.RULES_KEY) or []
         if not case_rules:
-            raise ValueError(f"Timeliness case '{case_cfg.get(YC.ID_KEY)}' must define rules.")
+            raise ValueError(
+                f"Business rule '{business_rule_cfg.get(YC.ID_KEY)}' must define rules."
+            )
 
         case_gate = case_gate & _and_all(
             _rule_condition_from_make_condition(
@@ -186,53 +184,65 @@ def precompute_timeliness_rules(
     """
     technical_columns: List[str] = []
 
-    for matrix_cfg in rule_pack_cfg.get(YC.TIMELINESS_RULES_KEY, []) or []:
-        precompute_rules = matrix_cfg.get(YC.PRECOMPUTE_RULES_KEY) or {}
-        if not precompute_rules:
+    precompute_rules = rule_pack_cfg.get(YC.PRECOMPUTE_RULES_KEY) or {}
+    if not precompute_rules:
+        return df, technical_columns
+
+    default_column = (
+        rule_pack_cfg.get(YC.ANCHOR_COLUMN_KEY)
+        or rule_pack_cfg.get("column")
+        or rule_pack_cfg.get(YC.ROW_ANCHOR_COLUMN_KEY)
+        or (df.columns[0] if df.columns else None)
+    )
+    if default_column is None:
+        raise ValueError("Precompute rules require an anchor_column or a non-empty DataFrame.")
+
+    seen_names = set()
+    for rule_cfg in precompute_rules.get(YC.RULES_KEY, []) or []:
+        name = _rule_name(rule_cfg)
+        if not name:
+            raise ValueError("Every precompute rule requires a 'name'.")
+        if name in seen_names:
+            raise ValueError(f"Duplicate precompute rule name: {name}")
+        seen_names.add(name)
+
+        materialized_column = _materialized_precompute_column(name)
+        rule_cfg[YC.MATERIALIZED_COLUMN_KEY] = materialized_column
+
+        if materialized_column in df.columns or materialized_column in technical_columns:
             continue
 
-        default_column = (
-            matrix_cfg.get(YC.ANCHOR_COLUMN_KEY)
-            or matrix_cfg.get("column")
-            or rule_pack_cfg.get(YC.ROW_ANCHOR_COLUMN_KEY)
-            or (df.columns[0] if df.columns else None)
+        df = df.withColumn(
+            materialized_column,
+            _rule_condition_from_make_condition(
+                rule_cfg=rule_cfg,
+                registry=registry,
+                default_column=default_column,
+            ).cast("boolean"),
         )
-        if default_column is None:
-            raise ValueError("Timeliness precompute requires an anchor_column or a non-empty DataFrame.")
-
-        seen_names = set()
-        for rule_cfg in precompute_rules.get(YC.RULES_KEY, []) or []:
-            name = _rule_name(rule_cfg)
-            if not name:
-                raise ValueError("Every timeliness precompute rule requires a 'name'.")
-            if name in seen_names:
-                raise ValueError(f"Duplicate timeliness precompute rule name: {name}")
-            seen_names.add(name)
-
-            materialized_column = _materialized_precompute_column(name)
-            rule_cfg[YC.MATERIALIZED_COLUMN_KEY] = materialized_column
-
-            if materialized_column in df.columns or materialized_column in technical_columns:
-                continue
-
-            df = df.withColumn(
-                materialized_column,
-                _rule_condition_from_make_condition(
-                    rule_cfg=rule_cfg,
-                    registry=registry,
-                    default_column=default_column,
-                ).cast("boolean"),
-            )
-            technical_columns.append(materialized_column)
+        technical_columns.append(materialized_column)
 
     return df, technical_columns
+
+
+def _business_rule_emit_code(business_rule_cfg: Dict[str, Any]) -> str:
+    for rule_cfg in business_rule_cfg.get(YC.RULES_KEY, []) or []:
+        metadata = rule_cfg.get(YC.METADATA_KEY) or {}
+        code = (
+            metadata.get("error_dictionary_test_cd")
+            or metadata.get("rule_code")
+        )
+        if code:
+            return str(code)
+    return str(business_rule_cfg[YC.ID_KEY])
+
 
 def timeliness_matrix(
     column: str,
     *,
     registry: Optional[DQRuleRegistry] = None,
     precompute_rules: Optional[Dict[str, Any]] = None,
-    timeliness_cases: Optional[List[Dict[str, Any]]] = None,
+    business_rules: Optional[List[Dict[str, Any]]] = None,
     emit: Optional[Dict[str, Any]] = None,
     alias: Optional[str] = None,
 ) -> Column:
@@ -240,7 +250,7 @@ def timeliness_matrix(
     Execute a timeliness matrix as one DQX row rule.
 
     The matrix does not implement its own field/op DSL. Both precompute rules
-    and case rules are standard registered row rules returning make_condition().
+    and business-rule rules are standard registered row rules returning make_condition().
     """
     emit = emit or {}
     match_policy = (emit.get("match_policy") or "first").lower()
@@ -252,7 +262,7 @@ def timeliness_matrix(
         precompute_rules=precompute_rules,
     )
     message = _message_from_matches(
-        compiler.compile_case_matches(timeliness_cases or []),
+        compiler.compile_business_rule_matches(business_rules or []),
         match_policy=match_policy,
         code_separator=code_separator,
     )

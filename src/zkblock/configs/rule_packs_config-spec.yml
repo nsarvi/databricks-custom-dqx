@@ -14,6 +14,23 @@ rule_packs:
       - <Rule ID> 
     depends_on:                                                 # Optional
       - <Rule ID> 
+    emit:                                                       # Optional: applies to business_rules emission
+      match_policy: <first|all>                                 # Optional; first emits first matching business code, all emits all
+      code_separator: "|"                                       # Optional when match_policy=all
+
+    precompute_rules:                                           # Optional: reusable standard row rules, materialized once per row
+      rules:
+        - id: <Rule ID>                                         # Required and its rule ID mentioned in rule_mapping.yaml
+          name: <Unique reusable rule name>                     # Required and unique within this rule pack
+          criticality: <error|warn|info>                        # Required: error|warn|info
+          message: <Message to the function>                    # Required
+          filter: <Spark SQL boolean expr>                      # Optional
+          arguments:                                            # Optional; actual function arguments
+            arg1: v1
+            arg2: v2
+          metadata:                                             # Optional
+            error_dictionary_test_cd: "A.1"
+
     category: <Category of the process>                         # Optional
     subcategory: <Sub Category of the process>                  # Optional
     rule_type: <Rule type>                                      # Optional
@@ -32,49 +49,25 @@ rule_packs:
             metadata:                                           # Optional
               error_dictionary_test_cd: "A.1"                   # Optional and any user defined metadata can be passed    
 
-    timeliness_rules:                                           # Optional: multi-column row timeliness matrix rules
-      - id: <Timeliness Matrix ID>                              # Required; logical rule name for the matrix
-        criticality: <error|warn|info>                          # Required: error|warn|info
-        message: <Message to the rule>                          # Optional; becomes metadata.validation_message
-        anchor_column: <Existing DF/Table column name>           # Optional; row-rule anchor, defaults to row_anchor_column/first DF column
-        alias: <Output alias for emitted test code>              # Optional
-        emit:                                                   # Optional
-          match_policy: <first|all>                             # Optional; first emits first T-code, all emits all matching T-codes
-          code_separator: "|"                                   # Optional when match_policy=all
-
-        precompute_rules:                                       # Optional: reusable standard row rules, materialized once per row
-          rules:
-            - id: <Rule ID>                                     # Required and its rule ID mentioned in rule_mapping.yaml
-              name: <Unique reusable rule name>                 # Required and unique within this timeliness matrix
-              criticality: <error|warn|info>                    # Required: error|warn|info
-              message: <Message to the function>                # Required
-              filter: <Spark SQL boolean expr>                  # Optional
-              arguments:                                        # Optional; actual function arguments
-                arg1: v1
-                arg2: v2
-              metadata:                                         # Optional
-                error_dictionary_test_cd: "A.1"
-
-        timeliness_cases:                                       # Required: the concrete Txxx cases to emit
-          - id: <Txxx.x>
-            test_code: <Txxx.x>
-            description: <Business description>                 # Optional
-            criticality: <error|warn|info>                      # Optional; defaults from matrix criticality
-            message: <Message to the function>                  # Optional
-            use_precompute_rules: [<Unique reusable rule name>]  # Optional references to precompute_rules.rules.name
-            when:                                               # Optional extra Spark SQL/block condition
-              sql_expression: <Spark SQL boolean expression>
-            rules:                                              # Required: standard row rules; all must return make_condition()
-              - id: <Rule ID>                                   # Required and its rule ID mentioned in rule_mapping.yaml
-                name: <Unique rule name>                        # Optional but recommended
-                criticality: <error|warn|info>                  # Required: error|warn|info
-                message: <Message to the function>              # Required
-                filter: <Spark SQL boolean expr>                # Optional
-                arguments:                                      # Optional; actual function arguments
-                  arg1: v1
-                  arg2: v2
-                metadata:                                       # Optional
-                  error_dictionary_test_cd: "A.1"
+    business_rules:                                             # Optional: business Txxx groups, not callable rule IDs
+      - id: <Txxx.x>                                            # Required business rule id
+        description: <Business description>                     # Optional
+        criticality: <error|warn|info>                          # Optional; defaults from rule pack criticality
+        message: <Message to the function>                      # Optional
+        use_precompute_rules: [<Unique reusable rule name>]      # Optional references to precompute_rules.rules.name
+        when:                                                   # Optional extra Spark SQL/block condition
+          sql_expression: <Spark SQL boolean expression>
+        rules:                                                  # Required: DQX-compatible row rules returning make_condition()
+          - id: <Rule ID>                                       # Required and its rule ID mentioned in rule_mapping.yaml
+            name: <Unique rule name>                            # Optional but recommended
+            criticality: <error|warn|info>                      # Required: error|warn|info
+            message: <Message to the function>                  # Required
+            filter: <Spark SQL boolean expr>                    # Optional
+            arguments:                                          # Optional; actual function arguments
+              arg1: v1
+              arg2: v2
+            metadata:                                           # Optional; emitted code should live here
+              error_dictionary_test_cd: "A.1"
 
     dataset_rules:                                              # Define dataset rules
       - id: <Dataset Rule ID or dotted.path>                    # Required

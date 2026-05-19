@@ -486,6 +486,44 @@ class ConfigUtils:
 
             return result
 
+        def _merge_named_precompute_rules(parent_cfg: Dict[str, Any], child_cfg: Dict[str, Any]) -> Dict[str, Any]:
+            """
+            Merge precompute_rules preserving parent order:
+            - rules merge by 'name' when present, else by 'id'
+            - child-level options such as emit override parent options
+            """
+            parent_cfg = copy.deepcopy(parent_cfg or {})
+            child_cfg = copy.deepcopy(child_cfg or {})
+            parent_rules = list(parent_cfg.get(YC.RULES_KEY, []) or [])
+            child_rules = list(child_cfg.get(YC.RULES_KEY, []) or [])
+
+            index = {
+                (r.get(YC.NAME_KEY) or r.get(YC.ID_KEY)): i
+                for i, r in enumerate(parent_rules)
+                if r and (r.get(YC.NAME_KEY) or r.get(YC.ID_KEY)) is not None
+            }
+
+            merged_rules = parent_rules[:]
+            for child_rule in child_rules:
+                key = child_rule.get(YC.NAME_KEY) or child_rule.get(YC.ID_KEY)
+                if key is None:
+                    merged_rules.append(child_rule)
+                    continue
+                if key in index:
+                    merged_rules[index[key]] = child_rule
+                else:
+                    index[key] = len(merged_rules)
+                    merged_rules.append(child_rule)
+
+            merged = parent_cfg
+            for k, v in child_cfg.items():
+                if k == YC.RULES_KEY:
+                    continue
+                merged[k] = v
+            if merged_rules:
+                merged[YC.RULES_KEY] = merged_rules
+            return merged
+
         def _merge_pack(parent: Dict[str, Any], child: Dict[str, Any]) -> Dict[str, Any]:
             """
             Merge a child pack onto a parent pack (both already flattened)
@@ -500,8 +538,10 @@ class ConfigUtils:
                 merged[k] = copy.deepcopy(v)
 
             # Overlay child's simple keys (override if provided)
-            for k in [YC.VERSION_KEY, YC.VERSION_DESCRIPTION_KEY, YC.RULE_VERSION_KEY,
-                      YC.CATEGORY_KEY, YC.SUBCATEGORY_KEY, YC.RULE_TYPE_KEY, YC.FAST_FAIL_KEY]:
+            for k in [YC.ID_KEY, YC.VERSION_KEY, YC.VERSION_DESCRIPTION_KEY, YC.RULE_VERSION_KEY,
+                      YC.CATEGORY_KEY, YC.SUBCATEGORY_KEY, YC.RULE_TYPE_KEY, YC.FAST_FAIL_KEY,
+                      YC.EMIT_KEY, YC.ANCHOR_COLUMN_KEY, YC.ROW_ANCHOR_COLUMN_KEY,
+                      YC.ARGUMENTS_KEY, YC.FILTER_KEY, "alias"]:
                 if child.get(k) is not None:
                     merged[k] = child[k]
 
@@ -517,10 +557,16 @@ class ConfigUtils:
                 (child or {}).get(YC.DATASET_RULES_KEY, []),
             )
 
-            # Timeliness rules (business-level row matrix config)
-            merged[YC.TIMELINESS_RULES_KEY] = _merge_ordered_rules(
-                (parent or {}).get(YC.TIMELINESS_RULES_KEY, []),
-                (child or {}).get(YC.TIMELINESS_RULES_KEY, []),
+            # Reusable precompute rules merge by name and run once.
+            merged[YC.PRECOMPUTE_RULES_KEY] = _merge_named_precompute_rules(
+                (parent or {}).get(YC.PRECOMPUTE_RULES_KEY, {}),
+                (child or {}).get(YC.PRECOMPUTE_RULES_KEY, {}),
+            )
+
+            # Business rules merge by id. Their nested rules are DQX row callables.
+            merged[YC.BUSINESS_RULES_KEY] = _merge_ordered_rules(
+                (parent or {}).get(YC.BUSINESS_RULES_KEY, []),
+                (child or {}).get(YC.BUSINESS_RULES_KEY, []),
             )
 
             # Remove 'extends' from the final, it's flattened

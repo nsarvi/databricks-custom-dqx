@@ -72,34 +72,48 @@ def compile_rule_pack_to_dqx_rules(
             "'anchor_column'/'row_anchor_column'."
         )
 
-    def _compile_timeliness_rule(rule_cfg: Dict[str, Any]) -> DQRowRule:
+    def _compile_business_rules_matrix() -> DQRowRule:
         """
-        Compile the business-friendly top-level `timeliness_rules` section
-        into the single DQX row callable that evaluates the decision matrix.
+        Compile top-level `business_rules` into a single DQX row callable
+        that evaluates the business-rule matrix.
         """
-        anchor_column = _resolve_row_anchor(rule_cfg)
-        rule_id = rule_cfg.get(YC.ID_KEY) or YC.TIMELINESS_MATRIX_RULE_ID
+        anchor_column = _resolve_row_anchor(rule_pack_cfg)
+        rule_id = f"{rule_pack_cfg.get(YC.ID_KEY, YC.TIMELINESS_MATRIX_RULE_ID)}_business_rules"
+        business_rules_cfg = rule_pack_cfg.get(YC.BUSINESS_RULES_KEY, []) or []
+        crits = [
+            (business_rule.get(YC.CRITICALITY_KEY, "error") or "error").lower()
+            for business_rule in business_rules_cfg
+        ]
+        for business_rule in business_rules_cfg:
+            crits.extend(
+                (rule_cfg.get(YC.CRITICALITY_KEY, "error") or "error").lower()
+                for rule_cfg in (business_rule or {}).get(YC.RULES_KEY, []) or []
+            )
+        aggregate_criticality = (
+            (rule_pack_cfg.get(YC.CRITICALITY_KEY) or "").lower()
+            or ("error" if "error" in crits else ("warn" if "warn" in crits else "info"))
+        )
 
-        kwargs = dict(rule_cfg.get(YC.ARGUMENTS_KEY, {}) or {})
+        kwargs = dict(rule_pack_cfg.get(YC.ARGUMENTS_KEY, {}) or {})
         for key in (
             "alias",
-            "emit",
+            YC.EMIT_KEY,
             YC.PRECOMPUTE_RULES_KEY,
-            YC.TIMELINESS_CASES_KEY,
+            YC.BUSINESS_RULES_KEY,
         ):
-            if key in rule_cfg and key not in kwargs:
-                kwargs[key] = rule_cfg[key]
+            if key in rule_pack_cfg and key not in kwargs:
+                kwargs[key] = rule_pack_cfg[key]
         kwargs.setdefault("registry", registry)
 
         return DQRowRule(
             column=anchor_column,
             check_func=registry.get_row(YC.TIMELINESS_MATRIX_RULE_ID),
             name=rule_id,
-            criticality=(rule_cfg.get(YC.CRITICALITY_KEY, "error") or "error").lower(),
-            filter=rule_cfg.get(YC.FILTER_KEY, None),
+            criticality=aggregate_criticality,
+            filter=rule_pack_cfg.get(YC.FILTER_KEY, None),
             check_func_args=[],
             check_func_kwargs=kwargs,
-            user_metadata=_metadata(rule_cfg),
+            user_metadata=_metadata(rule_pack_cfg),
         )
 
     for col_name, col_payload in columns_cfg.items():
@@ -175,27 +189,10 @@ def compile_rule_pack_to_dqx_rules(
                     )
                 )
 
-    # Construct first-class timeliness matrix rules. These are user-facing
-    # business configs, not raw DQX rule definitions.
-    for rule_cfg in rule_pack_cfg.get(YC.TIMELINESS_RULES_KEY, []) or []:
-        rules.append(_compile_timeliness_rule(rule_cfg))
-
-    # Construct pack-level row rules. These are useful for composite row checks
-    # that are not naturally owned by a single physical column.
-    for rule_cfg in rule_pack_cfg.get(YC.RULES_KEY, []) or []:
-        anchor_column = _resolve_row_anchor(rule_cfg)
-        rules.append(
-            DQRowRule(
-                column=anchor_column,
-                check_func=registry.get_row(rule_cfg[YC.ID_KEY]),
-                name=rule_cfg[YC.ID_KEY],
-                criticality=(rule_cfg.get(YC.CRITICALITY_KEY, "error") or "error").lower(),
-                filter=rule_cfg.get(YC.FILTER_KEY, None),
-                check_func_args=[],
-                check_func_kwargs=dict(rule_cfg.get(YC.ARGUMENTS_KEY, {}) or {}),
-                user_metadata=_metadata(rule_cfg),
-            )
-        )
+    # Construct first-class business rule matrix. The outer business_rules[].id
+    # is orchestration metadata; executable rules live under business_rules[].rules.
+    if rule_pack_cfg.get(YC.BUSINESS_RULES_KEY):
+        rules.append(_compile_business_rules_matrix())
 
     # Construct dataset-level rules
     ds_rules_cfg = rule_pack_cfg.get(YC.DATASET_RULES_KEY, [])
