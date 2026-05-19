@@ -13,164 +13,264 @@ rule_packs:
     # as the DQX row-rule anchor for pack-level composite rules.
     row_anchor_column: ORG_DETRMN_NUM
 
-    rules:
-      - id: row.timeliness_matrix
+    columns:
+      Date Request Received:
+        rules:
+          - id: row.date_format_invalid
+            criticality: error
+            message: "Date Request Received must be a valid date."
+            arguments:
+              accepted_formats: ["yyyy-MM-dd", "MM/dd/yyyy", "M/d/yyyy"]
+              allow_null_or_blank: true
+            metadata:
+              validation_family: date_format
+
+      AOR/Equivalent Notice Receipt Date:
+        rules:
+          - id: row.date_format_invalid
+            criticality: error
+            message: "AOR/Equivalent Notice Receipt Date must be a valid date or NA."
+            arguments:
+              accepted_formats: ["yyyy-MM-dd", "MM/dd/yyyy", "M/d/yyyy"]
+              allowed_values: ["NA", "N/A"]
+              allow_null_or_blank: true
+            metadata:
+              validation_family: date_format
+
+      Date verbal notification provided:
+        rules:
+          - id: row.date_format_invalid
+            criticality: error
+            message: "Date verbal notification provided must be a valid date."
+            arguments:
+              accepted_formats: ["yyyy-MM-dd", "MM/dd/yyyy", "M/d/yyyy"]
+              allow_null_or_blank: true
+            metadata:
+              validation_family: date_format
+
+      Date written notification provided:
+        rules:
+          - id: row.date_format_invalid
+            criticality: error
+            message: "Date written notification provided must be a valid date or NA."
+            arguments:
+              accepted_formats: ["yyyy-MM-dd", "MM/dd/yyyy", "M/d/yyyy"]
+              allowed_values: ["NA", "N/A"]
+              allow_null_or_blank: true
+            metadata:
+              validation_family: date_format
+
+    timeliness_rules:
+      - id: pcsl_timeliness_matrix
         criticality: error
         message: "PCSL timeliness validation failed"
-        arguments:
-          alias: pcsl_timeliness_test_code
-          precompute_common_rules: true
+        alias: pcsl_timeliness_test_code
+        anchor_column: ORG_DETRMN_NUM
 
-          date_parsing:
-            accepted_formats:
-              - "yyyy-MM-dd"
-              - "MM/dd/yyyy"
-              - "M/d/yyyy"
-            invalid_values:
-              - "NA"
-              - "N/A"
-              - ""
+        emit:
+          match_policy: first
+          code_separator: "|"
 
-          emit:
-            match_policy: first
-            code_separator: "|"
-
-          common_rules:
-            standard_non_part_b_approval_denial:
-              materialize_as: "__dqx_timeliness_common__standard_non_part_b_approval_denial"
-              sql_expression: >
-                `Is this a Primary Part B Drug Request?` = 'N'
-                AND `Processing Priority` = 'S'
-                AND `Disposition` IN ('F', 'P', 'A')
-
-            no_extension:
-              materialize_as: "__dqx_timeliness_common__no_extension"
-              sql_expression: "`Was an extension taken?` = 'N'"
-
-            with_extension:
-              materialize_as: "__dqx_timeliness_common__with_extension"
-              sql_expression: "`Was an extension taken?` = 'Y'"
-
-            request_and_verbal_valid:
-              materialize_as: "__dqx_timeliness_common__request_and_verbal_valid"
-              valid_dates:
-                - "Date Request Received"
-                - "Date verbal notification provided"
-
-            aor_valid:
-              materialize_as: "__dqx_timeliness_common__aor_valid"
-              valid_dates:
-                - "AOR/Equivalent Notice Receipt Date"
-
-            aor_na:
-              materialize_as: "__dqx_timeliness_common__aor_na"
-              sql_expression: "upper(trim(cast(`AOR/Equivalent Notice Receipt Date` as string))) = 'NA'"
-
-            written_valid:
-              materialize_as: "__dqx_timeliness_common__written_valid"
-              valid_dates:
-                - "Date written notification provided"
-
-            written_na:
-              materialize_as: "__dqx_timeliness_common__written_na"
-              sql_expression: "upper(trim(cast(`Date written notification provided` as string))) = 'NA'"
-
-            verbal_before_written:
-              materialize_as: "__dqx_timeliness_common__verbal_before_written"
-              date_order:
-                before: "Date verbal notification provided"
-                after: "Date written notification provided"
-
-          date_points:
-            request_received:
-              strategy: field
-              field: "Date Request Received"
-
-            later_request_or_aor:
-              strategy: latest_of
-              fields:
-                - "Date Request Received"
-                - "AOR/Equivalent Notice Receipt Date"
-
-            verbal_notification:
-              strategy: field
-              field: "Date verbal notification provided"
-
-          sla_rules:
-            gt_7_calendar_days:
-              op: gt
-              value: 7
-
-            gt_21_calendar_days:
-              op: gt
-              value: 21
-
+        precompute_rules:
           rules:
-            - id: T100.1
-              test_code: "T100.1"
-              description: "Untimely verbal notification - standard approval/denial with verbal and written notice, AOR date present, no extension"
-              use_common_rules:
-                - standard_non_part_b_approval_denial
-                - no_extension
-                - request_and_verbal_valid
-                - aor_valid
-                - written_valid
-                - verbal_before_written
-              start: later_request_or_aor
-              end: verbal_notification
-              sla: gt_7_calendar_days
+            - id: row.sql_expression
+              name: standard_non_part_b_approval_denial
+              criticality: error
+              message: "Standard non-Part-B approval/denial population"
+              arguments:
+                sql_expression: >
+                  `Is this a Primary Part B Drug Request?` = 'N'
+                  AND `Processing Priority` = 'S'
+                  AND `Disposition` IN ('F', 'P', 'A')
 
-            - id: T100.2
-              test_code: "T100.2"
-              description: "Untimely verbal notification - standard approval/denial with verbal and written notice, no AOR date, no extension"
-              use_common_rules:
-                - standard_non_part_b_approval_denial
-                - no_extension
-                - request_and_verbal_valid
-                - aor_na
-                - written_valid
-                - verbal_before_written
-              start: request_received
-              end: verbal_notification
-              sla: gt_7_calendar_days
+            - id: row.sql_expression
+              name: no_extension
+              criticality: error
+              message: "No extension taken"
+              arguments:
+                sql_expression: "`Was an extension taken?` = 'N'"
 
-            - id: T100.3
-              test_code: "T100.3"
-              description: "Untimely verbal notification - standard approval/denial with verbal and written notice, AOR date present, with extension"
-              use_common_rules:
-                - standard_non_part_b_approval_denial
-                - with_extension
-                - request_and_verbal_valid
-                - aor_valid
-                - written_valid
-                - verbal_before_written
-              start: later_request_or_aor
-              end: verbal_notification
-              sla: gt_21_calendar_days
+            - id: row.sql_expression
+              name: with_extension
+              criticality: error
+              message: "Extension taken"
+              arguments:
+                sql_expression: "`Was an extension taken?` = 'Y'"
 
-            - id: T100.4
-              test_code: "T100.4"
-              description: "Untimely verbal notification - standard approval/denial with verbal and written notice, no AOR date, with extension"
-              use_common_rules:
-                - standard_non_part_b_approval_denial
-                - with_extension
-                - request_and_verbal_valid
-                - aor_na
-                - written_valid
-                - verbal_before_written
-              start: request_received
-              end: verbal_notification
-              sla: gt_21_calendar_days
+            - id: row.sql_expression
+              name: request_and_verbal_valid
+              criticality: error
+              message: "Request received date and verbal notification date are valid"
+              arguments:
+                sql_expression: >
+                  `Date Request Received` IS NOT NULL
+                  AND trim(cast(`Date Request Received` as string)) <> ''
+                  AND to_date(`Date Request Received`) IS NOT NULL
+                  AND `Date verbal notification provided` IS NOT NULL
+                  AND trim(cast(`Date verbal notification provided` as string)) <> ''
+                  AND to_date(`Date verbal notification provided`) IS NOT NULL
 
-            - id: T101.1
-              test_code: "T101.1"
-              description: "Untimely verbal notification - standard approval/denial with verbal notice only, AOR date present, no extension"
-              use_common_rules:
-                - standard_non_part_b_approval_denial
-                - no_extension
-                - request_and_verbal_valid
-                - aor_valid
-                - written_na
-              start: later_request_or_aor
-              end: verbal_notification
-              sla: gt_7_calendar_days
+            - id: row.sql_expression
+              name: aor_valid
+              criticality: error
+              message: "AOR receipt date is valid"
+              arguments:
+                sql_expression: >
+                  `AOR/Equivalent Notice Receipt Date` IS NOT NULL
+                  AND trim(cast(`AOR/Equivalent Notice Receipt Date` as string)) <> ''
+                  AND to_date(`AOR/Equivalent Notice Receipt Date`) IS NOT NULL
+
+            - id: row.sql_expression
+              name: aor_na
+              criticality: error
+              message: "AOR receipt date is NA"
+              arguments:
+                sql_expression: "upper(trim(cast(`AOR/Equivalent Notice Receipt Date` as string))) = 'NA'"
+
+            - id: row.sql_expression
+              name: written_valid
+              criticality: error
+              message: "Written notification date is valid"
+              arguments:
+                sql_expression: >
+                  `Date written notification provided` IS NOT NULL
+                  AND trim(cast(`Date written notification provided` as string)) <> ''
+                  AND to_date(`Date written notification provided`) IS NOT NULL
+
+            - id: row.sql_expression
+              name: written_na
+              criticality: error
+              message: "Written notification date is NA"
+              arguments:
+                sql_expression: "upper(trim(cast(`Date written notification provided` as string))) = 'NA'"
+
+            - id: row.sql_expression
+              name: verbal_before_written
+              criticality: error
+              message: "Verbal notification occurs before written notification"
+              arguments:
+                sql_expression: >
+                  to_date(`Date verbal notification provided`)
+                  < to_date(`Date written notification provided`)
+
+        timeliness_cases:
+          - id: T100.1
+            test_code: "T100.1"
+            description: "Untimely verbal notification - standard approval/denial with verbal and written notice, AOR date present, no extension"
+            use_precompute_rules:
+              - standard_non_part_b_approval_denial
+              - no_extension
+              - request_and_verbal_valid
+              - aor_valid
+              - written_valid
+              - verbal_before_written
+            rules:
+              - id: row.elapsed_days_sql
+                name: gt_7_calendar_days
+                criticality: error
+                message: "Elapsed calendar days from later request/AOR to verbal notification is greater than 7"
+                arguments:
+                  start:
+                    sql_expression: >
+                      greatest(
+                        to_date(`Date Request Received`),
+                        to_date(`AOR/Equivalent Notice Receipt Date`)
+                      )
+                  end:
+                    sql_expression: "to_date(`Date verbal notification provided`)"
+                  sql_expression: "{elapsed_days} > 7"
+
+          - id: T100.2
+            test_code: "T100.2"
+            description: "Untimely verbal notification - standard approval/denial with verbal and written notice, no AOR date, no extension"
+            use_precompute_rules:
+              - standard_non_part_b_approval_denial
+              - no_extension
+              - request_and_verbal_valid
+              - aor_na
+              - written_valid
+              - verbal_before_written
+            rules:
+              - id: row.elapsed_days_sql
+                name: gt_7_calendar_days
+                criticality: error
+                message: "Elapsed calendar days from request received to verbal notification is greater than 7"
+                arguments:
+                  start:
+                    sql_expression: "to_date(`Date Request Received`)"
+                  end:
+                    sql_expression: "to_date(`Date verbal notification provided`)"
+                  sql_expression: "{elapsed_days} > 7"
+
+          - id: T100.3
+            test_code: "T100.3"
+            description: "Untimely verbal notification - standard approval/denial with verbal and written notice, AOR date present, with extension"
+            use_precompute_rules:
+              - standard_non_part_b_approval_denial
+              - with_extension
+              - request_and_verbal_valid
+              - aor_valid
+              - written_valid
+              - verbal_before_written
+            rules:
+              - id: row.elapsed_days_sql
+                name: gt_21_calendar_days
+                criticality: error
+                message: "Elapsed calendar days from later request/AOR to verbal notification is greater than 21"
+                arguments:
+                  start:
+                    sql_expression: >
+                      greatest(
+                        to_date(`Date Request Received`),
+                        to_date(`AOR/Equivalent Notice Receipt Date`)
+                      )
+                  end:
+                    sql_expression: "to_date(`Date verbal notification provided`)"
+                  sql_expression: "{elapsed_days} > 21"
+
+          - id: T100.4
+            test_code: "T100.4"
+            description: "Untimely verbal notification - standard approval/denial with verbal and written notice, no AOR date, with extension"
+            use_precompute_rules:
+              - standard_non_part_b_approval_denial
+              - with_extension
+              - request_and_verbal_valid
+              - aor_na
+              - written_valid
+              - verbal_before_written
+            rules:
+              - id: row.elapsed_days_sql
+                name: gt_21_calendar_days
+                criticality: error
+                message: "Elapsed calendar days from request received to verbal notification is greater than 21"
+                arguments:
+                  start:
+                    sql_expression: "to_date(`Date Request Received`)"
+                  end:
+                    sql_expression: "to_date(`Date verbal notification provided`)"
+                  sql_expression: "{elapsed_days} > 21"
+
+          - id: T101.1
+            test_code: "T101.1"
+            description: "Untimely verbal notification - standard approval/denial with verbal notice only, AOR date present, no extension"
+            use_precompute_rules:
+              - standard_non_part_b_approval_denial
+              - no_extension
+              - request_and_verbal_valid
+              - aor_valid
+              - written_na
+            rules:
+              - id: row.elapsed_days_sql
+                name: gt_7_calendar_days
+                criticality: error
+                message: "Elapsed calendar days from later request/AOR to verbal notification is greater than 7"
+                arguments:
+                  start:
+                    sql_expression: >
+                      greatest(
+                        to_date(`Date Request Received`),
+                        to_date(`AOR/Equivalent Notice Receipt Date`)
+                      )
+                  end:
+                    sql_expression: "to_date(`Date verbal notification provided`)"
+                  sql_expression: "{elapsed_days} > 7"

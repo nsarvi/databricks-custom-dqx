@@ -9,7 +9,7 @@ from zkblock.dqx.dqx_rule_registry import DQRuleRegistry
 from zkblock.dqx import yaml_constants as YC
 from zkblock.dqx.base_dqx_engine import BaseDQXEngine
 from zkblock.dqx.dqx_compiler import compile_rule_pack_to_dqx_rules
-from zkblock.dqx.custom_rules.timeliness import precompute_timeliness_common_rules
+from zkblock.dqx.custom_rules.timeliness import precompute_timeliness_rules
 
 from zkblock.dqx.utils.logging_utils import LoggingHandler
 from zkblock.dqx.runtime_context import get_runtime_context
@@ -63,7 +63,7 @@ class ZkblockDQXEngine(BaseDQXEngine):
             effective_ref_dfs.update(ref_dfs)
 
         input_df = df
-        df, technical_cols = precompute_timeliness_common_rules(df, rule_pack_config)
+        df, technical_cols = precompute_timeliness_rules(df, rule_pack_config, self.registry)
         dq_rules = compile_rule_pack_to_dqx_rules(rule_pack_config, self.registry, df.columns)
 
         logger.info(f"Applying DQX rules for {rule_pack_id}")

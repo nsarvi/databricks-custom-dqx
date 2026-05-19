@@ -1,10 +1,60 @@
 from pyspark.sql import Column
 from pyspark.sql import functions as F
+from databricks.labs.dqx.check_funcs import make_condition
 
 
-def make_condition(condition: Column, message: str, alias: str) -> Column:
-    # TODO: Reconstruct original helper from earlier screenshot.
-    return condition.alias(alias)
+def _date_point_sql(point) -> str:
+    if isinstance(point, str):
+        return point
+
+    point = point or {}
+    expression = point.get("sql_expression") or point.get("expression")
+    if not expression:
+        raise ValueError("Date point requires sql_expression or expression.")
+    return str(expression)
+
+
+def sql_expression(
+    column: str,
+    sql_expression: str | None = None,
+    expression: str | None = None,
+    message: str | None = None,
+    alias: str | None = None,
+) -> Column:
+    expr = sql_expression or expression
+    if not expr:
+        raise ValueError("sql_expression rule requires 'sql_expression' or 'expression'.")
+    return make_condition(
+        condition=F.expr(expr),
+        message=message or expr,
+        alias=alias or f"{column}_sql_expression",
+    )
+
+
+def elapsed_days_sql(
+    column: str,
+    start,
+    end,
+    sql_expression: str,
+    message: str | None = None,
+    alias: str | None = None,
+) -> Column:
+    start_sql = _date_point_sql(start)
+    end_sql = _date_point_sql(end)
+    elapsed_days_sql_text = f"datediff({end_sql}, {start_sql})"
+    rendered = (
+        sql_expression
+        .replace("{elapsed_days}", elapsed_days_sql_text)
+        .replace("{calendar_days}", elapsed_days_sql_text)
+        .replace("{actual_days}", elapsed_days_sql_text)
+        .replace("{start_date}", start_sql)
+        .replace("{end_date}", end_sql)
+    )
+    return make_condition(
+        condition=F.expr(rendered),
+        message=message or rendered,
+        alias=alias or f"{column}_elapsed_days_sql",
+    )
 
 
 # Checks if the column value is not in the list of exempted values
@@ -109,3 +159,38 @@ def is_sci_notation_invalid(column: str) -> Column:
     valid = (cond | F.col(column).isNull() | (F.length(F.col(column)) == 0))  # nulls/blanks are considered invalid
 
     return make_condition(condition=valid, message=f"{column} not in scientific notation", alias=f"{column}_sci_notation")
+
+
+def is_date_format_invalid(
+    column: str,
+    accepted_formats: list[str],
+    allowed_values: list[str] | None = None,
+    allow_null_or_blank: bool = True,
+) -> Column:
+    """
+    Checks whether a populated value cannot be parsed using the accepted date formats.
+
+    This is a format check only. Required-date logic should remain a separate
+    rule so timeliness logic can compose presence/NA cases independently.
+    """
+    raw = F.col(column)
+    text = F.trim(raw.cast("string"))
+
+    allowed_values = allowed_values or []
+    allowed_lower = [str(v).strip().lower() for v in allowed_values if v is not None]
+
+    skip = F.lit(False)
+    if allow_null_or_blank:
+        skip = raw.isNull() | (text == F.lit(""))
+    if allowed_lower:
+        skip = skip | F.lower(text).isin(allowed_lower)
+
+    parsed = [F.to_date(text, fmt) for fmt in (accepted_formats or [])]
+    parsed_date = F.coalesce(*parsed) if parsed else F.to_date(text)
+    invalid = (~skip) & parsed_date.isNull()
+
+    return make_condition(
+        condition=invalid,
+        message=f"{column} invalid date format",
+        alias=f"{column}_date_format_invalid",
+    )

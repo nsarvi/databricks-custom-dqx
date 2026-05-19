@@ -454,9 +454,9 @@ class ConfigUtils:
 
             return out
 
-        def _merge_dataset_rules(parent_rules: List[Dict[str, Any]], child_rules: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        def _merge_ordered_rules(parent_rules: List[Dict[str, Any]], child_rules: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             """
-            Merge dataset_rules preserving order:
+            Merge rule lists preserving order:
             - start with parent's list
             - for each child rule:
               * if same id exists in parent, replace it (child overrides)
@@ -512,9 +512,15 @@ class ConfigUtils:
             )
 
             # Dataset rules (NEW special handling)
-            merged[YC.DATASET_RULES_KEY] = _merge_dataset_rules(
+            merged[YC.DATASET_RULES_KEY] = _merge_ordered_rules(
                 (parent or {}).get(YC.DATASET_RULES_KEY, []),
                 (child or {}).get(YC.DATASET_RULES_KEY, []),
+            )
+
+            # Timeliness rules (business-level row matrix config)
+            merged[YC.TIMELINESS_RULES_KEY] = _merge_ordered_rules(
+                (parent or {}).get(YC.TIMELINESS_RULES_KEY, []),
+                (child or {}).get(YC.TIMELINESS_RULES_KEY, []),
             )
 
             # Remove 'extends' from the final, it's flattened

@@ -55,9 +55,9 @@ def compile_rule_pack_to_dqx_rules(
 
     def _resolve_row_anchor(rule_cfg: Dict[str, Any]) -> str:
         anchor = (
-            rule_cfg.get("anchor_column")
+            rule_cfg.get(YC.ANCHOR_COLUMN_KEY)
             or rule_cfg.get("column")
-            or rule_pack_cfg.get("row_anchor_column")
+            or rule_pack_cfg.get(YC.ROW_ANCHOR_COLUMN_KEY)
         )
         if anchor:
             if df_columns_list is not None and not col_exists(anchor):
@@ -70,6 +70,36 @@ def compile_rule_pack_to_dqx_rules(
         raise ValueError(
             "Pack-level row rules require either df_columns or an explicit "
             "'anchor_column'/'row_anchor_column'."
+        )
+
+    def _compile_timeliness_rule(rule_cfg: Dict[str, Any]) -> DQRowRule:
+        """
+        Compile the business-friendly top-level `timeliness_rules` section
+        into the single DQX row callable that evaluates the decision matrix.
+        """
+        anchor_column = _resolve_row_anchor(rule_cfg)
+        rule_id = rule_cfg.get(YC.ID_KEY) or YC.TIMELINESS_MATRIX_RULE_ID
+
+        kwargs = dict(rule_cfg.get(YC.ARGUMENTS_KEY, {}) or {})
+        for key in (
+            "alias",
+            "emit",
+            YC.PRECOMPUTE_RULES_KEY,
+            YC.TIMELINESS_CASES_KEY,
+        ):
+            if key in rule_cfg and key not in kwargs:
+                kwargs[key] = rule_cfg[key]
+        kwargs.setdefault("registry", registry)
+
+        return DQRowRule(
+            column=anchor_column,
+            check_func=registry.get_row(YC.TIMELINESS_MATRIX_RULE_ID),
+            name=rule_id,
+            criticality=(rule_cfg.get(YC.CRITICALITY_KEY, "error") or "error").lower(),
+            filter=rule_cfg.get(YC.FILTER_KEY, None),
+            check_func_args=[],
+            check_func_kwargs=kwargs,
+            user_metadata=_metadata(rule_cfg),
         )
 
     for col_name, col_payload in columns_cfg.items():
@@ -144,6 +174,11 @@ def compile_rule_pack_to_dqx_rules(
                         user_metadata=_metadata(rule_cfg)
                     )
                 )
+
+    # Construct first-class timeliness matrix rules. These are user-facing
+    # business configs, not raw DQX rule definitions.
+    for rule_cfg in rule_pack_cfg.get(YC.TIMELINESS_RULES_KEY, []) or []:
+        rules.append(_compile_timeliness_rule(rule_cfg))
 
     # Construct pack-level row rules. These are useful for composite row checks
     # that are not naturally owned by a single physical column.
